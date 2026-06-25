@@ -1,0 +1,132 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id Int @id @default(autoincrement())
+  username String @unique
+  password String
+  createdAt DateTime @default(now())
+  Categories Category[]
+  FinishedObjects FinishedObject[]
+  Materials Material[]
+  FOlogs FOlog[]
+  StockLogs StockLog[]
+  FinancialLogs FinancialLog[]
+  Expenses Expense[]
+  MoneyIn MoneyIn[]
+}
+
+model Category {
+  id Int @id @default(autoincrement())
+  name String 
+  type String
+  user User @relation(fields: [userId], references: [id])
+  userId Int
+  FinishedObjects FinishedObject[]
+  Materials Material[]
+}
+
+model FinishedObject {
+  id Int @id @default(autoincrement())
+  name String
+  category Category @relation(fields: [categoryId], references:[id])
+  categoryId Int
+  askingPrice Decimal
+  status String
+  isProcessed Boolean @default(false)
+  user User @relation(fields: [userId], references: [id])
+  userId Int
+  FOlogs FOlog[]
+  QuantityUsed QuantityUsed[]
+  MoneyIn MoneyIn[]
+}
+
+model Material {
+  id Int @id @default(autoincrement())
+  name String
+  category Category @relation(fields: [categoryId], references:[id])
+  categoryId Int 
+  unit String
+  pricePerUnit Decimal
+  quantity Int
+  user User @relation(fields: [userId], references: [id])
+  userId Int
+  StockLogs StockLog[]
+  Expenses Expense[]
+  QuantityUsed QuantityUsed[]
+}
+
+model FOlog {
+  id Int @id @default(autoincrement())
+  action String
+  FO FinishedObject @relation(fields: [FOId], references:[id])
+  FOId Int
+  date DateTime @default(now())
+  user User @relation(fields: [userId], references: [id])
+  userId Int
+}
+
+model StockLog {
+  id Int @id @default(autoincrement())
+  action String
+  material Material @relation(fields: [materialId], references:[id])
+  materialId Int
+  date DateTime @default(now())
+  user User @relation(fields: [userId], references: [id])
+  userId Int
+}
+
+model FinancialLog {
+  id Int @id @default(autoincrement())
+  action String
+  type String
+  date DateTime @default(now())
+  amount Decimal
+  user User @relation(fields: [userId], references: [id])
+  userId Int
+}
+
+model Expense {
+  id Int @id @default(autoincrement())
+  name String
+  cost Decimal
+  material Material? @relation(fields: [materialId], references: [id])
+  materialId Int?
+  description String
+  date DateTime @default(now())
+  user User @relation(fields: [userId], references: [id])
+  userId Int
+}
+
+model QuantityUsed {
+  id Int @id @default(autoincrement())
+  finishedObject FinishedObject @relation(fields: [FOId], references: [id])
+  FOId Int
+  material Material @relation(fields: [materialId], references: [id])
+  materialId Int
+  quantity Int
+  @@unique([FOId, materialId])
+}
+
+model MoneyIn {
+  id Int @id @default(autoincrement())
+  name String
+  amount Decimal
+  finishedObject FinishedObject? @relation(fields: [FOId], references: [id])
+  FOId Int?
+  description String
+  date DateTime @default(now())
+  user User @relation(fields: [userId], references: [id])
+  userId Int
+}
