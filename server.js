@@ -1,65 +1,29 @@
-const express = require('express');
+import prisma from './prisma.js';
+import express from 'express';
+
 const app = express();
 const port = 3000;
 
-const { PrismaClient } = require('./node_modules/@prisma/client');
-const prisma = new PrismaClient();
-
 app.use(express.json());
 
-// Get all materials
-app.get('/materials', async (req, res) => {
-    const materials = await prisma.material.findMany();
-    res.json(materials);
-});
+import materialsRouter from './routes/materials.js';
+app.use('/materials', materialsRouter);
 
-// Get material by id
-app.get('/materials/:id', async (req, res) => {
-    try{
-        const id = parseInt(req.params.id);
-        const material = await prisma.material.findUnique({
-            where: { id: id },
-        }) 
-        if(!material){
-            return res.status(404).json({ error: "Material does not exist." });
-        }
-        res.json(material);
-    } catch (error) {
-        res.status(500).json({ error: "Could not get material." });
-    } 
-});
+import categoriesRouter from './routes/categories.js';
+app.use('/categories', categoriesRouter);
 
-// Update a specific (NON-QUANTITY) field.
-// partial update works because Prisma treats undefined fields as skip
-app.patch('/materials/:id', async (req, res) => {
-    try{
-       const { name, unit, pricePerUnit } = req.body;
-        const id = parseInt(req.params.id);
-        const material = await prisma.material.update({
-            where: { id: id },
-            data: { name: name, pricePerUnit: pricePerUnit, unit: unit}
-        });
-        res.json(material);
-    } catch (error){
-        res.status(500).json({ error: "Could not update material." });
-    }    
-});
+import expensesRouter from './routes/expenses.js';
+app.use('/expenses', expensesRouter);
 
-// Create new material
-app.post('/materials', async (req, res) => {
-    const { name, unit, pricePerUnit, quantity, categoryId, userId } = req.body;
-    try{
-        const createMaterial = await prisma.material.create({
-            data: {
-                name, categoryId, unit, pricePerUnit, quantity, userId
-            }
-        })
-        res.status(201).json(createMaterial);
-    } catch (error) {
-        res.status(500).json({ error: "Could not create material."});
-    }
-    
-});
+import moneyInRouter from './routes/moneyIn.js';
+app.use('/moneyIn', moneyInRouter);
+
+import finishedObjectRouter from './routes/finishedObjects.js';
+app.use('/finishedObjects', finishedObjectRouter);
+
+import logRouter from './routes/logs.js';
+app.use('/logs', logRouter);
+
 
 app.listen(port, () => {
     console.log(`Listening on port ${port}`);
