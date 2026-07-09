@@ -59,7 +59,7 @@ model Material {
   categoryId Int 
   unit String
   pricePerUnit Decimal
-  quantity Int
+  quantity Decimal
   user User @relation(fields: [userId], references: [id])
   userId Int
   StockLogs StockLog[]
