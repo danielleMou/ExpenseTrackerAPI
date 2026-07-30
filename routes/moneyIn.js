@@ -1,12 +1,26 @@
 import prisma from "../prisma.js";
 import express from "express";
+import parseId from "../utils/parseId.js";
+import {validateString, validateDecimalString, validatePositiveInteger} from "../utils/validators.js";
+import handlePrismaError from "../utils/prismaErrorHandler.js";
 
 const router = express.Router();
 
 // Create money in
 router.post('/', async (req, res) => {
-    const { name, amount, description, userId, finishedObjectId } = req.body;
     try{
+        const { name, amount, description, userId, finishedObjectId } = req.body;
+
+        const errors = [
+            validateString(name, { fieldName: 'name', required: true, maxLength: 100}),
+            validateDecimalString(amount, { fieldName: 'amount', required: true, maxDecimalPlaces: 2}),
+            validateString(description, { fieldName: 'description', required: true, maxLength: 400}),
+            validatePositiveInteger(userId, { fieldName: 'userId', required: true}),
+            validatePositiveInteger(finishedObjectId, { fieldName: 'finishedObjectId', required: false, nullable: true})
+        ].filter(Boolean);
+
+        if(errors.length) return res.status(400).json({ errors });
+
         const createMoneyIn = await prisma.moneyIn.create({
             data: {
                 name, amount, description, userId, finishedObjectId
@@ -14,30 +28,53 @@ router.post('/', async (req, res) => {
         });
         res.status(201).json(createMoneyIn);
     } catch (error){
-        res.status(500).json({ error: "Could not create money in."});
         console.log(error);
+        if (handlePrismaError(error, res)) return;
+        res.status(500).json({ error: 'Could not create new record.' });
     }
 });
 
 // View all money in
 router.get('/', async (req, res) => {
-    const moneyin = await prisma.moneyIn.findMany();
-    res.json(moneyin);
+    try{
+        const moneyin = await prisma.moneyIn.findMany();
+        res.json(moneyin); 
+    } catch (error) {
+        console.log(error);
+        if (handlePrismaError(error, res)) return;
+        res.status(500).json({ error: 'Could not view all income records.' });
+    }   
 });
 
 // Edit money in record
 router.patch('/:id', async (req, res) => {
     try{
+        const id = parseId(req.params.id)
+        if (id == null) return res.status(400).json({ error: "Id must be a positive integer" });
+
         const { name, amount, description } = req.body;
-        const id = parseInt(req.params.id);
+
+        if (name === undefined && amount === undefined && pricePerUnit === undefined && description === undefined) {
+            return res.status(400).json({ error: "Must have at least one present field to patch." });
+        }
+
+        const errors = [
+            validateString(name, { fieldName: 'name', required: false, maxLength: 100}),
+            validateDecimalString(amount, { fieldName: 'amount', required: false, maxDecimalPlaces: 2}),
+            validateString(description, { fieldName: 'description', required: false, maxLength: 400}),
+        ].filter(Boolean);
+
+        if(errors.length) return res.status(400).json({ errors });
+
         const moneyin = await prisma.moneyIn.update({
             where: {id: id},
             data: { name, amount, description }
         });
         res.json(moneyin)
     } catch (error){
-        res.status(500).json({ error: "Could not update money in record." });
         console.log(error);
+        if (handlePrismaError(error, res)) return;
+        res.status(500).json({ error: 'Could not view all income records.' });
     }
 })
 

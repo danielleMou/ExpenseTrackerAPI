@@ -43,6 +43,7 @@ model FinishedObject {
   category Category @relation(fields: [categoryId], references:[id])
   categoryId Int
   askingPrice Decimal
+  productionCost Decimal
   status String
   isProcessed Boolean @default(false)
   user User @relation(fields: [userId], references: [id])

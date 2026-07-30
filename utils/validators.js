@@ -2,8 +2,12 @@
 // options: option object of the form {fieldName: "name", required: t/f, maxLength/maxDecimalPlaces: }
 
 function validateString(value, options){
-    if(options.required && value == null) return `${options.fieldName} is a required field.`;
-    if(value == null) return null;
+    if(options.required && value === undefined) return `${options.fieldName} is a required field.`;
+    if(!options.required && value === undefined) return null;
+
+    if(value === null && options.nullable === true) return null;
+    if(value === null && options.nullable === false) return `${options.fieldName} must not be null`;
+    if(value === null) return `${options.fieldName} must not be null`;
 
     if(typeof value !== "string" || value.trim() === "") return `${options.fieldName} must be a non-empty string.`;
 
@@ -14,8 +18,12 @@ function validateString(value, options){
 }
 
 function validateDecimalString(value, options){
-    if(options.required && value == null) return `${options.fieldName} is a required field.`;
-    if(value == null) return null;
+    if(options.required && value === undefined) return `${options.fieldName} is a required field.`;
+    if(!options.required && value === undefined) return null;
+
+    if(value === null && options.nullable === true) return null;
+    if(value === null && options.nullable === false) return `${options.fieldName} must not be null`;
+    if(value === null) return `${options.fieldName} must not be null`;
 
     const regex = new RegExp(`^\\d+(\\.\\d{1,${options.maxDecimalPlaces}})?$`);
     if(!regex.test(value)) return `${options.fieldName} must be a decimal to ${options.maxDecimalPlaces} d.p.`;
@@ -24,9 +32,13 @@ function validateDecimalString(value, options){
 }
 
 function validatePositiveInteger(value, options){
-    if(options.required && value == null) return `${options.fieldName} is a required field.`;
-    if(value == null) return null;
+    if(options.required && value === undefined) return `${options.fieldName} is a required field.`;
+    if(!options.required && value === undefined) return null;
 
+    if(value === null && options.nullable === true) return null;
+    if(value === null && options.nullable === false) return `${options.fieldName} must not be null`;
+    if(value === null) return `${options.fieldName} must not be null`;
+    
     const regex = /^\d+$/;
     if(!regex.test(String(value)) || value === 0) return `${options.fieldName} must be a positive integer.`;
 
