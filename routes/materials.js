@@ -1,8 +1,9 @@
 import prisma from "../prisma.js";
 import express from "express";
 import parseId from "../utils/parseId.js";
-import {validateString, validateDecimalString, validatePositiveInteger} from "../utils/validators.js";
+import {validateString, validateDecimalString, validatePositiveInteger, validateBoolean} from "../utils/validators.js";
 import handlePrismaError from "../utils/prismaErrorHandler.js";
+import { restockMaterial, createMaterial } from "../services/materialService.js";
 
 const router = express.Router();
 
@@ -74,7 +75,7 @@ router.patch('/:id', async (req, res) => {
 // Create new material
 router.post('/', async (req, res) => {
     try{
-        const { name, unit, pricePerUnit, quantity, categoryId, userId } = req.body;
+        const { name, unit, pricePerUnit, quantity, categoryId, createExpense, userId } = req.body;
 
         const errors = [
             validateString(name, { fieldName: 'name', required: true, maxLength: 100}),
@@ -82,21 +83,44 @@ router.post('/', async (req, res) => {
             validateDecimalString(pricePerUnit, { fieldName: 'pricePerUnit', required: true, maxDecimalPlaces: 2}),
             validateDecimalString(quantity, { fieldName: 'quantity', required: true, maxDecimalPlaces: 2}),
             validatePositiveInteger(categoryId, { fieldName: 'categoryId', required: true}),
+            validateBoolean(createExpense, { fieldName: 'createExpense', required: true}),
             validatePositiveInteger(userId, { fieldName: 'userId', required: true})
         ].filter(Boolean);
 
         if(errors.length) return res.status(400).json({ errors });
 
-        const createMaterial = await prisma.material.create({
-            data: {
-                name, categoryId, unit, pricePerUnit, quantity, userId
-            }
-        });
-        res.status(201).json(createMaterial);
+        const newMaterial = await createMaterial(name, unit, pricePerUnit, quantity, categoryId, createExpense, userId);
+
+        res.status(201).json(newMaterial);
     } catch (error) {
         console.log(error);
         if (handlePrismaError(error, res)) return;
         res.status(500).json({ error: 'Could not create material.' });
+    }
+});
+
+// restocking a material
+router.post('/restock', async (req, res) => {
+    try{
+        const { materialId, noUnits, pricePerUnit, isUpdated, userId} = req.body;
+
+        // validations
+        const errors = [
+            validatePositiveInteger(materialId, { fieldName: 'materialId', required: true}),
+            validateDecimalString(noUnits, { fieldName: 'noUnits', required: true, maxDecimalPlaces: 2}),
+            validateDecimalString(pricePerUnit, { fieldName: 'pricePerUnit', required: true, maxDecimalPlaces: 2}),
+            validateBoolean(isUpdated, { fieldName: 'isUpdated', required: true}),
+            validatePositiveInteger(userId, { fieldName: 'userId', required: true})
+        ].filter(Boolean);
+        if(errors.length) return res.status(400).json({ errors });
+
+        const restock = await restockMaterial(materialId, noUnits, pricePerUnit, isUpdated, userId);
+
+        res.status(201).json(restock);
+    } catch (error) {
+        console.log(error);
+        if (handlePrismaError(error, res)) return;
+        res.status(500).json({ error: 'Could not restock material.' });
     }
     
 });

@@ -45,4 +45,19 @@ function validatePositiveInteger(value, options){
     return null;
 }
 
-export { validateString, validateDecimalString, validatePositiveInteger };
+function validateBoolean(value, options){
+    if(options.required && value === undefined) return `${options.fieldName} is a required field.`;
+    if(!options.required && value === undefined) return null;
+
+    if(value === null && options.nullable === true) return null;
+    if(value === null && options.nullable === false) return `${options.fieldName} must not be null`;
+    if(value === null) return `${options.fieldName} must not be null`;
+
+    if(typeof value != "boolean"){
+        return `${options.fieldName} must be a boolean.`
+    }
+
+    return null;
+}
+
+export { validateString, validateDecimalString, validatePositiveInteger, validateBoolean };

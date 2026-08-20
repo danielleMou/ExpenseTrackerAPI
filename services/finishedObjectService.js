@@ -2,7 +2,7 @@ import prisma from "../prisma.js";
 import { Decimal } from '@prisma/client/runtime/library';
 
 // materials of the form: [{materialId, quantityUsed}, ... ]
-async function createFinishedObject(name, categoryId, askingPrice, userId, materials){
+async function createFinishedObject(name, description, categoryId, askingPrice, userId, materials){
     if (materials.length === 0) throw new Error("materials array cannot be empty.");
 
     const finishedObject = await prisma.$transaction(async (tx) => {
@@ -26,15 +26,15 @@ async function createFinishedObject(name, categoryId, askingPrice, userId, mater
                 throw err;
             }
 
-            if(fetchedMaterial.quantity < material.quantityUsed){
+            if(fetchedMaterial.quantity.valueOf() < material.quantityUsed){
                 // error there is not enough quantity
                 const err = new Error(`Insufficient stock of material ${fetchedMaterial.id}.`);
                 err.code = 'INSUFFICIENT_STOCK';
                 throw err;
             }
 
-            // calculate the production cost of the finihsed object - for each material: cost of unit x quantity used
-            productionCost = productionCost.plus(new Decimal(material.quantityUsed).mul(fetchedMaterial.pricePerUnit));
+            // calculate the production cost of the finished object - for each material: cost of unit x quantity used
+            productionCost = productionCost.plus(new Decimal(material.quantityUsed).mul(fetchedMaterial.pricePerUnit)).toDecimalPlaces(2);
         };
 
         const status = 'unlisted';
@@ -74,7 +74,6 @@ async function createFinishedObject(name, categoryId, askingPrice, userId, mater
                     action: "Created new finished object", FOId: createFO.id, userId: userId 
                 }
         });
-        throw new Error('force rollback for testing');
         return createFO;
     });
 

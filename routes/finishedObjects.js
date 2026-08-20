@@ -10,11 +10,39 @@ const router = express.Router();
 
 router.post('/', async (req, res) => {
     try{
-        const { name, category, askingPrice, userId, materials } = req.body;
+        const { name, description, categoryId, askingPrice, userId, materials } = req.body;
+
+        // validate materials array - should be of form [{materialId, quantityUsed}, ... ]
+        if(!Array.isArray(materials)) return res.status(400).json({ error : "Materials must be an array of the form: [{materialId, quantityUsed}, ... ]." });
+        if(materials.length <= 0) return res.status(400).json({ error : "Materials array must be non-empty." });
+        for(const material of materials){
+            if(material.materialId == null) return res.status(400).json({error : "Materials must contain a materialId." });
+            if(material.quantityUsed == null) return res.status(400).json({ error : "Materials must contain a quantity used." });
+
+            const errors = [
+                validatePositiveInteger(material.materialId, { fieldName: 'materialId', required: true}),
+                validateDecimalString(material.quantityUsed, { fieldName: 'quantityUsed', required: true, maxDecimalPlaces: 2})
+            ].filter(Boolean);
+            if(errors.length) return res.status(400).json({ errors });
+        }
+        // check for duplicate material ids - use map
+        const materialsSet = new Set();
+        for(const material of materials){
+            if(materialsSet.has(material.materialId)) return res.status(400).json({ error : "Materials array cannot contain duplicate entries." });
+            materialsSet.add(material.materialId);
+        }
 
         // validations
+        const errors = [
+            validateString(name, { fieldName: 'name', required: false, maxLength: 100}),
+            validateString(description, { fieldName: 'description', required: false, maxLength: 400}),
+            validatePositiveInteger(categoryId, { fieldName: 'categoryId', required: true}),
+            validateDecimalString(askingPrice, { fieldName: 'askingPrice', required: false, maxDecimalPlaces: 2}),
+            validatePositiveInteger(userId, { fieldName: 'userId', required: true})
+        ].filter(Boolean);
+        if(errors.length) return res.status(400).json({ errors });
 
-        const createFO = await createFinishedObject(name, category, askingPrice, userId, materials);
+        const createFO = await createFinishedObject(name, description, categoryId, askingPrice, userId, materials);
 
         res.status(201).json(createFO);
     } catch (error) {
