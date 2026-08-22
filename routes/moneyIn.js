@@ -3,6 +3,7 @@ import express from "express";
 import parseId from "../utils/parseId.js";
 import {validateString, validateDecimalString, validatePositiveInteger} from "../utils/validators.js";
 import handlePrismaError from "../utils/prismaErrorHandler.js";
+import { createMoneyIn, editMoneyIn } from "../services/financialService.js";
 
 const router = express.Router();
 
@@ -21,12 +22,8 @@ router.post('/', async (req, res) => {
 
         if(errors.length) return res.status(400).json({ errors });
 
-        const createMoneyIn = await prisma.moneyIn.create({
-            data: {
-                name, amount, description, userId, finishedObjectId
-            }
-        });
-        res.status(201).json(createMoneyIn);
+        const moneyIn = createMoneyIn(name, amount, description, userId, finishedObjectId);
+        res.status(201).json(moneyIn);
     } catch (error){
         console.log(error);
         if (handlePrismaError(error, res)) return;
@@ -66,11 +63,10 @@ router.patch('/:id', async (req, res) => {
 
         if(errors.length) return res.status(400).json({ errors });
 
-        const moneyin = await prisma.moneyIn.update({
-            where: {id: id},
-            data: { name, amount, description }
-        });
-        res.json(moneyin)
+        const moneyIn = editMoneyIn(id, name, amount, description);
+        
+        res.json(moneyIn);
+        
     } catch (error){
         console.log(error);
         if (handlePrismaError(error, res)) return;

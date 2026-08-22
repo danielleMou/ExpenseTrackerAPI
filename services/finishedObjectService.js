@@ -80,4 +80,41 @@ async function createFinishedObject(name, description, categoryId, askingPrice, 
     return finishedObject;
 }
 
-export default createFinishedObject;
+async function hideUnsoldFO(foId, userId){
+
+    const deleteFO = await prisma.$transaction(async (tx) => {
+        // check that the finsihed object exists
+        const fo = await tx.finishedObject.findUnique( { where: { id: foId }} );
+        if(fo == null) {
+            const err = new Error(`Finished object with id ${foId} does not exist.`);
+            err.code = 'FO_NONEXISTENT';
+            throw err;
+        }
+        
+        // check the flag is unsold
+        if(fo.status == "sold"){
+            const err = new Error(`Cannot delete sold finished object.`);
+            err.code = 'FO_SOLD';
+            throw err;
+        }
+
+        const delFo = await tx.finishedObject.update({
+            where: {id: foId},
+            data: { isDeleted: true }
+        });
+
+        // create FO log
+        const m = await tx.FOlog.create({
+                data: { 
+                    action: `Deleted FO ${foId}` , FOId: fo.id, userId: userId 
+                }
+        });
+
+        return delFo;
+
+    });
+
+    return deleteFO;
+}
+
+export  {createFinishedObject, hideUnsoldFO};

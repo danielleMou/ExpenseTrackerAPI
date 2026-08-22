@@ -46,6 +46,7 @@ model FinishedObject {
   productionCost Decimal
   status String
   isProcessed Boolean @default(false)
+  isDeleted Boolean @default(false)
   user User @relation(fields: [userId], references: [id])
   userId Int
   FOlogs FOlog[]

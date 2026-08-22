@@ -12,7 +12,7 @@ function validateString(value, options){
     if(typeof value !== "string" || value.trim() === "") return `${options.fieldName} must be a non-empty string.`;
 
     if(options.maxLength !== undefined){
-        if(value.length > options.maxLength) return `${options.fieldName} must be less than ${options.maxLength} characters.`;
+        if(value.length > options.maxLength) return `${options.fieldName} must be less than or equal to ${options.maxLength} characters.`;
     }
     return null;
 }
@@ -40,7 +40,7 @@ function validatePositiveInteger(value, options){
     if(value === null) return `${options.fieldName} must not be null`;
     
     const regex = /^\d+$/;
-    if(!regex.test(String(value)) || value === 0) return `${options.fieldName} must be a positive integer.`;
+    if(!regex.test(String(value)) || value == 0) return `${options.fieldName} must be a positive integer.`;
 
     return null;
 }
@@ -53,7 +53,7 @@ function validateBoolean(value, options){
     if(value === null && options.nullable === false) return `${options.fieldName} must not be null`;
     if(value === null) return `${options.fieldName} must not be null`;
 
-    if(typeof value != "boolean"){
+    if(typeof value !== "boolean"){
         return `${options.fieldName} must be a boolean.`
     }
 

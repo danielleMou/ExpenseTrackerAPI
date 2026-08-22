@@ -3,7 +3,7 @@ import express from "express";
 import parseId from "../utils/parseId.js";
 import {validateString, validateDecimalString, validatePositiveInteger} from "../utils/validators.js";
 import handlePrismaError from "../utils/prismaErrorHandler.js";
-import createFinishedObject from "../services/finishedObjectService.js";
+import { createFinishedObject, hideUnsoldFO } from "../services/finishedObjectService.js";
 import { Decimal } from '@prisma/client/runtime/library';
 
 const router = express.Router();
@@ -53,10 +53,30 @@ router.post('/', async (req, res) => {
     
 });
 
+// Finished objects - hides unsold FOs - soft delete
+router.delete('/:id', async (req, res) => {
+    try{
+        const id = parseId(req.params.id)
+        if (id == null) return res.status(400).json({ error: "Id must be a positive integer" });
+
+        const { userId } = req.body;
+        const errors = [ validatePositiveInteger(userId, { fieldName: 'userId', required: true}) ].filter(Boolean);
+        if(errors.length) return res.status(400).json({ errors });
+
+        const hideFO = await hideUnsoldFO(id, userId);
+        res.status(200).json(hideFO);
+
+    } catch (error){
+        console.log(error);
+        if (handlePrismaError(error, res)) return;
+        res.status(500).json({ error: 'Could not delete finished object.' });
+    }
+});
+
 // Finsihed objects - view all
 router.get('/', async (req, res) => {
     try{
-       const fos = await prisma.finishedObject.findMany();
+        const fos = await prisma.finishedObject.findMany();
         res.json(fos); 
     } catch (error){
         console.log(error);

@@ -100,13 +100,14 @@ router.post('/', async (req, res) => {
 });
 
 // restocking a material
-router.post('/restock', async (req, res) => {
+router.post('/restock/:id', async (req, res) => {
     try{
-        const { materialId, noUnits, pricePerUnit, isUpdated, userId} = req.body;
+        const { noUnits, pricePerUnit, isUpdated, userId} = req.body;
+        const materialId = parseId(req.params.id)
+        if (materialId == null) return res.status(400).json({ error: "Id must be a positive integer" });
 
         // validations
         const errors = [
-            validatePositiveInteger(materialId, { fieldName: 'materialId', required: true}),
             validateDecimalString(noUnits, { fieldName: 'noUnits', required: true, maxDecimalPlaces: 2}),
             validateDecimalString(pricePerUnit, { fieldName: 'pricePerUnit', required: true, maxDecimalPlaces: 2}),
             validateBoolean(isUpdated, { fieldName: 'isUpdated', required: true}),
