@@ -75,7 +75,6 @@ describe('createFinishedObject', () => {
       { materialId: c.id, quantityUsed: '1' }
     ]);
 
-    // 4.00 + 14.00 + 0.50
     const fos = await prisma.finishedObject.findMany();
     expect(fos[0].productionCost.toString()).toBe('18.5');
 
@@ -139,7 +138,6 @@ describe('createFinishedObject', () => {
     expect(updated.quantity.toString()).toBe('7.5');
   });
 
-  // EXPECT THIS TO FAIL — string comparison treats '9' as greater than '10'
   test('rejects when stock is insufficient across a digit boundary', async () => {
     const user = await makeUser();
     const cat = await makeCategory(user.id, 'finishedObject', 'Bags');
@@ -186,8 +184,7 @@ describe('createFinishedObject', () => {
 
     expect(await prisma.finishedObject.findMany()).toHaveLength(0);
   });
-
-  // proves the two-pass pattern: nothing is written before all preconditions pass
+  
   test('leaves the first material untouched when a later one fails', async () => {
     const user = await makeUser();
     const cat = await makeCategory(user.id, 'finishedObject', 'Bags');
@@ -299,7 +296,6 @@ describe('hideUnsoldFO', () => {
     await expect(hideUnsoldFO(999999, user.id)).rejects.toMatchObject({ code: 'FO_NONEXISTENT' });
   });
 
-  // documents current behaviour — hiding twice succeeds and logs twice
   test('hiding an already-hidden FO succeeds and writes a second log', async () => {
     const user = await makeUser();
     const cat = await makeCategory(user.id, 'finishedObject', 'Bags');
