@@ -11,11 +11,11 @@ async function createMaterial(name, unit, pricePerUnit, quantity, categoryId, cr
         });
 
         // create an expense and log if user chooses to and the quanity is greater than 0
-        if(createExpense && quantity > 0){
+        if(createExpense && new Decimal(quantity).gt(0)){
             const expenseName = `Create new material ${createNewMaterial.id}.`;
             const cost = (new Decimal(quantity)).mul(new Decimal(pricePerUnit)).toDecimalPlaces(2);
             const description = `Create new material ${createNewMaterial.id} with an amount of ${quantity} units.`
-            const createExpense = await tx.expense.create({
+            const expense = await tx.expense.create({
                 data: {
                     name: expenseName, cost, materialId: createNewMaterial.id, description, userId
                 }
@@ -86,7 +86,8 @@ async function restockMaterial(materialId, noUnits, pricePerUnit, isUpdated, use
                 }
         });
 
-        if(isUpdated){
+        // only updated if the flag is set to update AND the prices are the different
+        if(isUpdated && !((fetchedMaterial.pricePerUnit).eq(price))){
             const u = await tx.stockLog.create({
                 data: { 
                     action: `updated material ${fetchedMaterial.id} with new price of £${pricePerUnit}`, materialId: fetchedMaterial.id, userId: userId 

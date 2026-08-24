@@ -2,7 +2,7 @@ import prisma from "../prisma.js";
 import { Decimal } from '@prisma/client/runtime/library';
 
 async function createExpense(name, cost, materialId, description, userId){
-    const expense = prisma.$transaction(async (tx) => {
+    const expense = await prisma.$transaction(async (tx) => {
         // create the expense in the expense table
         const createExpense = await tx.expense.create({
             data: {
@@ -21,18 +21,20 @@ async function createExpense(name, cost, materialId, description, userId){
     return expense;
 }
 
-async function editExpense(id, name, cost, description){
-    const expense = prisma.$transaction(async (tx) => {
+async function editExpense(id, name, cost, description, userId){
+    const expense = await prisma.$transaction(async (tx) => {
         // edit the expense
         const editExpense = await tx.expense.update({
             where: {id: id},
             data: { name, cost, description }
         });
 
+        const updatedRowCost = editExpense.cost;
+
         // create the financial log
         const f = await tx.financialLog.create({
             data: { 
-                action: `Edited expense.`, type: "expense", amount: cost, userId: userId 
+                action: `Edited expense.`, type: "expense", amount: updatedRowCost, userId: userId 
             }
         });
         return editExpense;
@@ -40,16 +42,40 @@ async function editExpense(id, name, cost, description){
     return expense;
 }
 
-async function deleteExpense(){
-    
+async function deleteExpense(id, userId){
+    const deleteEx = await prisma.$transaction(async (tx) => {
+        // check the id exists
+        const fetchedExpense = await tx.expense.findUnique( { where: { id: id }} );
+            if(fetchedExpense == null) {
+                const err = new Error(`Expense with id ${id} does not exist.`);
+                err.code = 'EXPENSE_NONEXISTENT';
+                throw err;
+        }
+
+        // if exists then delete record
+        const deleted = await tx.expense.delete({
+            where: {
+                id: id,
+            },
+        });
+
+        // create the delete log
+        const f = await tx.financialLog.create({
+            data: { 
+                action: `Deleted expense ${id}.`, type: "expense", amount: fetchedExpense.cost, userId: userId 
+            }
+        });
+        return deleted;
+    })
+    return deleteEx;   
 }
 
-async function createMoneyIn(name, amount, description, userId, finishedObjectId){
-    const moneyIn = prisma.$transaction(async (tx) => {
+async function createMoneyIn(name, amount, description, userId, FOId){
+    const moneyIn = await prisma.$transaction(async (tx) => {
         // create the money in record in the table
         const createMoneyIn = await tx.moneyIn.create({
             data: {
-                name, amount, description, userId, finishedObjectId
+                name, amount, description, userId, FOId
             }
         });
 
@@ -59,32 +85,58 @@ async function createMoneyIn(name, amount, description, userId, finishedObjectId
                 action: `Created money in.`, type: "money in", amount, userId: userId 
             }
         });
-        return moneyIn;
+        return createMoneyIn;
     });
     return moneyIn;
 }
 
-async function editMoneyIn(id, name, amount, description){
-    const moneyIn = prisma.$transaction(async (tx) => {
+async function editMoneyIn(id, name, amount, description, userId){
+    const moneyInEdit = await prisma.$transaction(async (tx) => {
         // edit the money in record in the table
-        const moneyin = await tx.moneyIn.update({
+        const moneyIn = await tx.moneyIn.update({
             where: {id: id},
             data: { name, amount, description }
         });
 
+        const updatedRowCost = moneyIn.amount;
+
         // create the financial log
         const f = await tx.financialLog.create({
             data: { 
-                action: `Edited money in.`, type: "money in", amount, userId: userId 
+                action: `Edited money in.`, type: "money in", amount: updatedRowCost, userId: userId 
             }
         });
         return moneyIn;
     });
-    return moneyIn;
+    return moneyInEdit;
 }
 
-async function deleteMoneyIn(){
+async function deleteMoneyIn(id, userId){
+    const deleteMoneyIn = await prisma.$transaction(async (tx) => {
+        // check the id exists
+        const fetchedMoneyIn = await tx.moneyIn.findUnique( { where: { id: id }} );
+            if(fetchedMoneyIn == null) {
+                const err = new Error(`Money in with id ${id} does not exist.`);
+                err.code = 'MONEY_IN_NONEXISTENT';
+                throw err;
+        }
 
+        // if exists then delete record
+        const deleted = await tx.moneyIn.delete({
+            where: {
+                id: id,
+            },
+        });
+
+        // create the delete log
+        const f = await tx.financialLog.create({
+            data: { 
+                action: `Deleted money in record ${id}.`, type: "money in", amount: fetchedMoneyIn.amount, userId: userId 
+            }
+        });
+        return deleted;
+    })
+    return deleteMoneyIn; 
 }
 
 export { createExpense, editExpense, deleteExpense, createMoneyIn, editMoneyIn, deleteMoneyIn }

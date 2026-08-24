@@ -26,7 +26,7 @@ async function createFinishedObject(name, description, categoryId, askingPrice, 
                 throw err;
             }
 
-            if(fetchedMaterial.quantity.valueOf() < material.quantityUsed){
+            if(fetchedMaterial.quantity.lt(material.quantityUsed)){
                 // error there is not enough quantity
                 const err = new Error(`Insufficient stock of material ${fetchedMaterial.id}.`);
                 err.code = 'INSUFFICIENT_STOCK';
@@ -34,14 +34,15 @@ async function createFinishedObject(name, description, categoryId, askingPrice, 
             }
 
             // calculate the production cost of the finished object - for each material: cost of unit x quantity used
-            productionCost = productionCost.plus(new Decimal(material.quantityUsed).mul(fetchedMaterial.pricePerUnit)).toDecimalPlaces(2);
+            productionCost = productionCost.plus(new Decimal(material.quantityUsed).mul(fetchedMaterial.pricePerUnit));
         };
+        productionCost = productionCost.toDecimalPlaces(2);
 
         const status = 'unlisted';
         const isProcessed = false;
         const createFO = await tx.finishedObject.create({
             data: {
-                name, categoryId, askingPrice, status, isProcessed, userId, productionCost
+                name, description, categoryId, askingPrice, status, isProcessed, userId, productionCost
             }
         });
 

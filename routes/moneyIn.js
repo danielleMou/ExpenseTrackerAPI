@@ -3,7 +3,7 @@ import express from "express";
 import parseId from "../utils/parseId.js";
 import {validateString, validateDecimalString, validatePositiveInteger} from "../utils/validators.js";
 import handlePrismaError from "../utils/prismaErrorHandler.js";
-import { createMoneyIn, editMoneyIn } from "../services/financialService.js";
+import { createMoneyIn, deleteMoneyIn, editMoneyIn } from "../services/financialService.js";
 
 const router = express.Router();
 
@@ -49,7 +49,7 @@ router.patch('/:id', async (req, res) => {
         const id = parseId(req.params.id)
         if (id == null) return res.status(400).json({ error: "Id must be a positive integer" });
 
-        const { name, amount, description } = req.body;
+        const { name, amount, description, userId } = req.body;
 
         if (name === undefined && amount === undefined && pricePerUnit === undefined && description === undefined) {
             return res.status(400).json({ error: "Must have at least one present field to patch." });
@@ -59,11 +59,12 @@ router.patch('/:id', async (req, res) => {
             validateString(name, { fieldName: 'name', required: false, maxLength: 100}),
             validateDecimalString(amount, { fieldName: 'amount', required: false, maxDecimalPlaces: 2}),
             validateString(description, { fieldName: 'description', required: false, maxLength: 400}),
+            validatePositiveInteger(userId, { fieldName: 'userId', required: true})
         ].filter(Boolean);
 
         if(errors.length) return res.status(400).json({ errors });
 
-        const moneyIn = editMoneyIn(id, name, amount, description);
+        const moneyIn = editMoneyIn(id, name, amount, description, userId);
         
         res.json(moneyIn);
         
@@ -73,5 +74,25 @@ router.patch('/:id', async (req, res) => {
         res.status(500).json({ error: 'Could not view all income records.' });
     }
 })
+
+router.delete('/:id', async (req, res) => {
+    try{
+        const id = parseId(req.params.id)
+        if (id == null) return res.status(400).json({ error: "Id must be a positive integer" });
+
+        const { userId } = req.body;
+        const errors = [ validatePositiveInteger(userId, { fieldName: 'userId', required: true}) ].filter(Boolean);
+        if(errors.length) return res.status(400).json({ errors });
+
+        const deleteM = await deleteMoneyIn(id, userId);
+        res.status(200).json(deleteM);
+
+    } catch (error){
+        console.log(error);
+        if (handlePrismaError(error, res)) return;
+        res.status(500).json({ error: 'Could not delete money in record.' });
+    }
+});
+
 
 export default router;

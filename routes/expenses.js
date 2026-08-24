@@ -51,19 +51,20 @@ router.patch('/:id', async (req, res) => {
         const id = parseId(req.params.id)
         if (id == null) return res.status(400).json({ error: "Id must be a positive integer" });
 
-        const { name, cost, description } = req.body;
+        const { name, cost, description, userId } = req.body;
 
         if(name === undefined && cost === undefined && description === undefined) return res.status(400).json({ error: "Must have at least one field to patch." });
 
         const errors = [
             validateString(name, { fieldName: 'name', required: false, maxLength: 100}),
             validateDecimalString(cost, { fieldName: 'cost', required: false, maxDecimalPlaces: 2}),
-            validateString(description, { fieldName: 'description', required: false, maxLength: 400})
+            validateString(description, { fieldName: 'description', required: false, maxLength: 400}),
+            validatePositiveInteger(userId, { fieldName: 'userId', required: true})
         ].filter(Boolean);
 
         if(errors.length) return res.status(400).json({ errors });
 
-        const expense = editExpense(id, name, cost, description);
+        const expense = editExpense(id, name, cost, description, userId);
         res.json(expense);
     } catch (error){
         console.log(error);
@@ -71,5 +72,24 @@ router.patch('/:id', async (req, res) => {
         res.status(500).json({ error: 'Could not patch expense.' });
     }
 })
+
+router.delete('/:id', async (req, res) => {
+    try{
+        const id = parseId(req.params.id)
+        if (id == null) return res.status(400).json({ error: "Id must be a positive integer" });
+
+        const { userId } = req.body;
+        const errors = [ validatePositiveInteger(userId, { fieldName: 'userId', required: true}) ].filter(Boolean);
+        if(errors.length) return res.status(400).json({ errors });
+
+        const deleteExpense = await deleteExpense(id, userId);
+        res.status(200).json(deleteExpense);
+
+    } catch (error){
+        console.log(error);
+        if (handlePrismaError(error, res)) return;
+        res.status(500).json({ error: 'Could not delete expense record.' });
+    }
+});
 
 export default router;

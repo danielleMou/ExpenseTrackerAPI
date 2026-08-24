@@ -122,8 +122,7 @@ router.post('/restock/:id', async (req, res) => {
         console.log(error);
         if (handlePrismaError(error, res)) return;
         res.status(500).json({ error: 'Could not restock material.' });
-    }
-    
+    } 
 });
 
 export default router;
