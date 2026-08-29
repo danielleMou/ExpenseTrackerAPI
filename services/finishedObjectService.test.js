@@ -204,11 +204,7 @@ describe('createFinishedObject', () => {
 
     expect(await prisma.finishedObject.findMany()).toHaveLength(0);
   });
-<<<<<<< HEAD
   
-=======
-
->>>>>>> 2233175 (Completed testing for endpoints. Fixed a number of bugs this exposed.)
   test('leaves the first material untouched when a later one fails', async () => {
     const user = await makeUser();
     const cat = await makeCategory(user.id, 'finishedObject', 'Bags');
@@ -359,8 +355,6 @@ describe('hideUnsoldFO', () => {
     expect(other.isDeleted).toBe(false);
   });
 });
-<<<<<<< HEAD
-=======
 
 describe('updateFinishedObject', () => {
   beforeEach(async () => { await resetDatabase(); });
@@ -505,4 +499,3 @@ describe('updateFinishedObject', () => {
   });
 
 });
->>>>>>> 2233175 (Completed testing for endpoints. Fixed a number of bugs this exposed.)
