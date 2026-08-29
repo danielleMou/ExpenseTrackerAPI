@@ -22,12 +22,13 @@ router.post('/', async (req, res) => {
 
         if(errors.length) return res.status(400).json({ errors });
 
-        const expense = createExpense(name, cost, materialId, description, userId);
+        const expense = await createExpense(name, cost, materialId, description, userId);
         res.status(201).json(expense);
 
     } catch (error){
         console.log(error);
         if (handlePrismaError(error, res)) return;
+        if (error.code == 'MATERIAL_NONEXISTENT') return res.status(400).json({ error: "Material does not exist."});
         res.status(500).json({ error: 'Could not create expense.' });
     }
 });
@@ -64,11 +65,12 @@ router.patch('/:id', async (req, res) => {
 
         if(errors.length) return res.status(400).json({ errors });
 
-        const expense = editExpense(id, name, cost, description, userId);
+        const expense = await editExpense(id, name, cost, description, userId);
         res.json(expense);
     } catch (error){
         console.log(error);
         if (handlePrismaError(error, res)) return;
+        if (error.code == 'EXPENSE_NONEXISTENT') return res.status(404).json({ error: "Expense does not exist."});
         res.status(500).json({ error: 'Could not patch expense.' });
     }
 })
@@ -82,12 +84,13 @@ router.delete('/:id', async (req, res) => {
         const errors = [ validatePositiveInteger(userId, { fieldName: 'userId', required: true}) ].filter(Boolean);
         if(errors.length) return res.status(400).json({ errors });
 
-        const deleteExpense = await deleteExpense(id, userId);
-        res.status(200).json(deleteExpense);
+        const deletedExpense = await deleteExpense(id, userId);
+        res.status(200).json(deletedExpense);
 
     } catch (error){
         console.log(error);
         if (handlePrismaError(error, res)) return;
+        if (error.code == 'EXPENSE_NONEXISTENT') return res.status(404).json({ error: "Expense does not exist."});
         res.status(500).json({ error: 'Could not delete expense record.' });
     }
 });

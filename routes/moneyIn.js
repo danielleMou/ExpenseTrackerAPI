@@ -22,11 +22,12 @@ router.post('/', async (req, res) => {
 
         if(errors.length) return res.status(400).json({ errors });
 
-        const moneyIn = createMoneyIn(name, amount, description, userId, finishedObjectId);
+        const moneyIn = await createMoneyIn(name, amount, description, userId, finishedObjectId);
         res.status(201).json(moneyIn);
     } catch (error){
         console.log(error);
         if (handlePrismaError(error, res)) return;
+        if (error.code == 'FO_NONEXISTENT') return res.status(400).json({ error: "FO does not exist."});
         res.status(500).json({ error: 'Could not create new record.' });
     }
 });
@@ -51,7 +52,7 @@ router.patch('/:id', async (req, res) => {
 
         const { name, amount, description, userId } = req.body;
 
-        if (name === undefined && amount === undefined && pricePerUnit === undefined && description === undefined) {
+        if (name === undefined && amount === undefined && description === undefined) {
             return res.status(400).json({ error: "Must have at least one present field to patch." });
         }
 
@@ -64,13 +65,14 @@ router.patch('/:id', async (req, res) => {
 
         if(errors.length) return res.status(400).json({ errors });
 
-        const moneyIn = editMoneyIn(id, name, amount, description, userId);
+        const moneyIn = await editMoneyIn(id, name, amount, description, userId);
         
         res.json(moneyIn);
         
     } catch (error){
         console.log(error);
         if (handlePrismaError(error, res)) return;
+        if (error.code == 'MONEY_IN_NONEXISTENT') return res.status(404).json({ error: "Record does not exist."});
         res.status(500).json({ error: 'Could not view all income records.' });
     }
 })
@@ -90,6 +92,7 @@ router.delete('/:id', async (req, res) => {
     } catch (error){
         console.log(error);
         if (handlePrismaError(error, res)) return;
+        if (error.code == 'MONEY_IN_NONEXISTENT') return res.status(404).json({ error: "Record does not exist."});
         res.status(500).json({ error: 'Could not delete money in record.' });
     }
 });

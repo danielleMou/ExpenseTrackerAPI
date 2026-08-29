@@ -3,7 +3,12 @@ import { Decimal } from '@prisma/client/runtime/library';
 
 // materials of the form: [{materialId, quantityUsed}, ... ]
 async function createFinishedObject(name, description, categoryId, askingPrice, userId, materials){
-    if (materials.length === 0) throw new Error("materials array cannot be empty.");
+    if (materials.length === 0) {
+        // error there is not enough quantity
+        const err = new Error(`Materials array cannot be empty.`);
+        err.code = 'EMPTY_MATERIALS';
+        throw err;
+    }
 
     const finishedObject = await prisma.$transaction(async (tx) => {
         // retrieve all relavent materials
@@ -105,7 +110,7 @@ async function hideUnsoldFO(foId, userId){
         });
 
         // create FO log
-        const m = await tx.FOlog.create({
+        const m = await tx.fOlog.create({
                 data: { 
                     action: `Deleted FO ${foId}` , FOId: fo.id, userId: userId 
                 }
@@ -118,4 +123,39 @@ async function hideUnsoldFO(foId, userId){
     return deleteFO;
 }
 
-export  {createFinishedObject, hideUnsoldFO};
+async function updateFinishedObject(id, name, description, askingPrice, status, userId){
+    const updateFo = await prisma.$transaction(async (tx) => {
+        // check the id exists
+        const fo = await tx.finishedObject.findUnique( { where: { id: id }} );
+        if(fo == null) {
+            const err = new Error(`Finished object with id ${id} does not exist.`);
+            err.code = 'FO_NONEXISTENT';
+            throw err;
+        }
+
+        // update the fo
+        const updatedFo = await tx.finishedObject.update({
+            where: {id: id},
+            data: { name, description, askingPrice, status }
+        });
+
+        // get a list of the updated fields
+        const updatedFields = [];
+        if(name !== undefined) updatedFields.push(`name: ${name}`);
+        if(description !== undefined) updatedFields.push(`description: ${description}`);
+        if(askingPrice !== undefined) updatedFields.push(`askingPrice: ${askingPrice}`);
+        if(status !== undefined) updatedFields.push(`status: ${status}`);
+        const fields = updatedFields.join(", ");
+
+        // create the log
+        const m = await tx.fOlog.create({
+                data: { 
+                    action: `FO id ${id} field(s) updated: ${fields}` , FOId: id, userId: userId 
+                }
+        });
+        return updatedFo;
+    });
+    return updateFo;
+}
+
+export  {createFinishedObject, hideUnsoldFO, updateFinishedObject};

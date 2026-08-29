@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterAll } from 'vitest';
 import prisma from '../prisma.js';
 import resetDatabase from '../tests/resetDatabase.js';
-import { createFinishedObject, hideUnsoldFO } from './finishedObjectService.js';
+import { createFinishedObject, hideUnsoldFO, updateFinishedObject } from './finishedObjectService.js';
 
 async function makeUser() {
   return prisma.user.create({ data: { username: "user 1", password: "password" } });
@@ -14,6 +14,27 @@ async function makeCategory(userId, type = 'material', name = 'Fabric') {
 async function makeMaterial(userId, categoryId, { name = 'Cotton', quantity = '10', pricePerUnit = '2.00' } = {}) {
   return prisma.material.create({
     data: { name, unit: 'm', quantity, pricePerUnit, categoryId, userId }
+  });
+}
+
+async function makeFoCategory(userId, name = 'Bags', type = 'finishedObject') {
+  return prisma.category.create({ data: { name, type, userId } });
+}
+
+async function makeFO(userId, categoryId, overrides = {}) {
+  return prisma.finishedObject.create({
+    data: {
+      name: 'Tote',
+      description: 'A canvas tote',
+      askingPrice: '25.00',
+      status: 'unlisted',
+      isProcessed: false,
+      isDeleted: false,
+      productionCost: '6.00',
+      categoryId,
+      userId,
+      ...overrides
+    }
   });
 }
 
@@ -130,7 +151,6 @@ describe('createFinishedObject', () => {
       { materialId: mat.id, quantityUsed: '2.5' }
     ]);
 
-    // 2.5 x 3.33 = 8.325 -> 8.33
     const fos = await prisma.finishedObject.findMany();
     expect(fos[0].productionCost.toString()).toBe('8.33');
 
@@ -184,7 +204,11 @@ describe('createFinishedObject', () => {
 
     expect(await prisma.finishedObject.findMany()).toHaveLength(0);
   });
+<<<<<<< HEAD
   
+=======
+
+>>>>>>> 2233175 (Completed testing for endpoints. Fixed a number of bugs this exposed.)
   test('leaves the first material untouched when a later one fails', async () => {
     const user = await makeUser();
     const cat = await makeCategory(user.id, 'finishedObject', 'Bags');
@@ -236,21 +260,6 @@ describe('createFinishedObject', () => {
 describe('hideUnsoldFO', () => {
   beforeEach(async () => { await resetDatabase(); });
   afterAll(async () => { await prisma.$disconnect(); });
-
-  async function makeFO(userId, categoryId, overrides = {}) {
-    return prisma.finishedObject.create({
-      data: {
-        name: 'Tote',
-        askingPrice: '25.00',
-        status: 'unlisted',
-        isProcessed: false,
-        productionCost: '6.00',
-        categoryId,
-        userId,
-        ...overrides
-      }
-    });
-  }
 
   test('sets isDeleted and writes an FO log', async () => {
     const user = await makeUser();
@@ -350,3 +359,150 @@ describe('hideUnsoldFO', () => {
     expect(other.isDeleted).toBe(false);
   });
 });
+<<<<<<< HEAD
+=======
+
+describe('updateFinishedObject', () => {
+  beforeEach(async () => { await resetDatabase(); });
+  afterAll(async () => { await prisma.$disconnect(); });
+
+  test('updates a single field and leaves the rest untouched', async () => {
+    const user = await makeUser();
+    const cat = await makeFoCategory(user.id);
+    const fo = await makeFO(user.id, cat.id);
+
+    await updateFinishedObject(fo.id, 'Large Tote', undefined, undefined, undefined, user.id);
+
+    const updated = await prisma.finishedObject.findUnique({ where: { id: fo.id } });
+    expect(updated.name).toBe('Large Tote');
+    expect(updated.description).toBe('A canvas tote');
+    expect(updated.askingPrice.toString()).toBe('25');
+    expect(updated.status).toBe('unlisted');
+  });
+
+  test('updates multiple fields at once', async () => {
+    const user = await makeUser();
+    const cat = await makeFoCategory(user.id);
+    const fo = await makeFO(user.id, cat.id);
+
+    await updateFinishedObject(fo.id, 'Large Tote', 'Now in linen', '32.50', 'listed', user.id);
+
+    const updated = await prisma.finishedObject.findUnique({ where: { id: fo.id } });
+    expect(updated.name).toBe('Large Tote');
+    expect(updated.description).toBe('Now in linen');
+    expect(updated.askingPrice.toString()).toBe('32.5');
+    expect(updated.status).toBe('listed');
+  });
+
+  test('does not change productionCost, isProcessed, isDeleted or categoryId', async () => {
+    const user = await makeUser();
+    const cat = await makeFoCategory(user.id);
+    const fo = await makeFO(user.id, cat.id);
+
+    await updateFinishedObject(fo.id, 'Large Tote', 'x', '32.50', 'listed', user.id);
+
+    const updated = await prisma.finishedObject.findUnique({ where: { id: fo.id } });
+    expect(updated.productionCost.toString()).toBe('6');
+    expect(updated.isProcessed).toBe(false);
+    expect(updated.isDeleted).toBe(false);
+    expect(updated.categoryId).toBe(cat.id);
+  });
+
+  test('can set the status to sold, which is how an FO enters the queue', async () => {
+    const user = await makeUser();
+    const cat = await makeFoCategory(user.id);
+    const fo = await makeFO(user.id, cat.id);
+
+    await updateFinishedObject(fo.id, undefined, undefined, undefined, 'sold', user.id);
+
+    const updated = await prisma.finishedObject.findUnique({ where: { id: fo.id } });
+    expect(updated.status).toBe('sold');
+    expect(updated.isProcessed).toBe(false);
+  });
+
+  test('writes exactly one FO log linked to the object', async () => {
+    const user = await makeUser();
+    const cat = await makeFoCategory(user.id);
+    const fo = await makeFO(user.id, cat.id);
+
+    await updateFinishedObject(fo.id, 'Large Tote', undefined, undefined, undefined, user.id);
+
+    const logs = await prisma.FOlog.findMany();
+    expect(logs).toHaveLength(1);
+    expect(logs[0].FOId).toBe(fo.id);
+    expect(logs[0].userId).toBe(user.id);
+  });
+
+  test('the log names which fields changed and omits the others', async () => {
+    const user = await makeUser();
+    const cat = await makeFoCategory(user.id);
+    const fo = await makeFO(user.id, cat.id);
+
+    await updateFinishedObject(fo.id, 'Large Tote', undefined, '32.50', undefined, user.id);
+
+    const logs = await prisma.FOlog.findMany();
+    expect(logs[0].action).toContain('name');
+    expect(logs[0].action).toContain('askingPrice');
+    expect(logs[0].action).not.toContain('description');
+    expect(logs[0].action).not.toContain('status');
+  });
+
+  test('the log includes the new values', async () => {
+    const user = await makeUser();
+    const cat = await makeFoCategory(user.id);
+    const fo = await makeFO(user.id, cat.id);
+
+    await updateFinishedObject(fo.id, 'Large Tote', undefined, undefined, undefined, user.id);
+
+    const logs = await prisma.FOlog.findMany();
+    expect(logs[0].action).toContain('Large Tote');
+  });
+
+  test('returns the updated finished object', async () => {
+    const user = await makeUser();
+    const cat = await makeFoCategory(user.id);
+    const fo = await makeFO(user.id, cat.id);
+
+    const result = await updateFinishedObject(fo.id, 'Large Tote', undefined, undefined, undefined, user.id);
+
+    expect(result.name).toBe('Large Tote');
+  });
+
+  test('throws FO_NONEXISTENT and writes no log', async () => {
+    const user = await makeUser();
+
+    await expect(
+      updateFinishedObject(999999, 'Large Tote', undefined, undefined, undefined, user.id)
+    ).rejects.toMatchObject({ code: 'FO_NONEXISTENT' });
+
+    expect(await prisma.FOlog.findMany()).toHaveLength(0);
+  });
+
+  test('rolls back the update when the log write fails', async () => {
+    const user = await makeUser();
+    const cat = await makeFoCategory(user.id);
+    const fo = await makeFO(user.id, cat.id);
+
+    await expect(
+      updateFinishedObject(fo.id, 'Large Tote', undefined, undefined, undefined, 999999)
+    ).rejects.toThrow();
+
+    const untouched = await prisma.finishedObject.findUnique({ where: { id: fo.id } });
+    expect(untouched.name).toBe('Tote');
+  });
+
+  test('does not affect other finished objects', async () => {
+    const user = await makeUser();
+    const cat = await makeFoCategory(user.id);
+    const a = await makeFO(user.id, cat.id, { name: 'Tote' });
+    const b = await makeFO(user.id, cat.id, { name: 'Pouch' });
+
+    await updateFinishedObject(a.id, 'Large Tote', undefined, undefined, undefined, user.id);
+
+    const untouched = await prisma.finishedObject.findUnique({ where: { id: b.id } });
+    expect(untouched.name).toBe('Pouch');
+    expect(await prisma.FOlog.findMany()).toHaveLength(1);
+  });
+
+});
+>>>>>>> 2233175 (Completed testing for endpoints. Fixed a number of bugs this exposed.)

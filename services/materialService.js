@@ -40,6 +40,42 @@ async function createMaterial(name, unit, pricePerUnit, quantity, categoryId, cr
     return create;
 }
 
+// update a non-quanitiy field
+async function updateMaterial(id, name, unit, pricePerUnit, categoryId, userId){
+    
+    const updatedMaterial = await prisma.$transaction( async (tx) =>{
+        // check the material id exists
+        const fetchedMaterial = await tx.material.findUnique( { where: { id: id }} );
+        if(fetchedMaterial == null) {
+            const err = new Error(`Material with id ${id} does not exist.`);
+            err.code = 'MATERIAL_NONEXISTENT';
+            throw err;
+        }
+
+        // update the material
+        const material = await tx.material.update({
+            where: { id: id },
+            data: { name, pricePerUnit, unit, categoryId }
+        });
+
+        const updatedFields = [];
+        if(name !== undefined) updatedFields.push(`name: ${name}`);
+        if(unit !== undefined) updatedFields.push(`unit: ${unit}`);
+        if(pricePerUnit !== undefined) updatedFields.push(`pricePerUnit: ${pricePerUnit}`);
+        if(categoryId !== undefined) updatedFields.push(`CategoryId: ${categoryId}`);
+        const fields = updatedFields.join(", ");
+
+        // write the log - material field has been updated
+        const m = await tx.stockLog.create({
+                data: { 
+                    action: `Material ${id} field(s) updated: ${fields}`, materialId: id, userId: userId 
+                }
+        });
+        return material;
+    })
+    return updatedMaterial;
+}
+
 
 async function restockMaterial(materialId, noUnits, pricePerUnit, isUpdated, userId){
     if(noUnits <= 0) {
@@ -68,7 +104,6 @@ async function restockMaterial(materialId, noUnits, pricePerUnit, isUpdated, use
             where: { id: materialId },
             data: { pricePerUnit: price, quantity: {increment: noUnits} }
         });
-
         // create new expense - always uses the price per unit of what was actually paid
         const expenseName = `Material ${fetchedMaterial.id} restock.`;
         const cost = (new Decimal(noUnits)).mul(new Decimal(pricePerUnit)).toDecimalPlaces(2);
@@ -107,4 +142,4 @@ async function restockMaterial(materialId, noUnits, pricePerUnit, isUpdated, use
     return restock;
 }
 
-export { restockMaterial, createMaterial };
+export { restockMaterial, createMaterial, updateMaterial };

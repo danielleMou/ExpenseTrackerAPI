@@ -3,6 +3,16 @@ import { Decimal } from '@prisma/client/runtime/library';
 
 async function createExpense(name, cost, materialId, description, userId){
     const expense = await prisma.$transaction(async (tx) => {
+        // check the material id exists if present
+        if(materialId !== null){
+            const fetchedMaterial = await tx.material.findUnique( { where: { id: materialId }} );
+            if(fetchedMaterial == null) {
+                const err = new Error(`Material with id ${materialId} does not exist.`);
+                err.code = 'MATERIAL_NONEXISTENT';
+                throw err;
+            }
+        }
+
         // create the expense in the expense table
         const createExpense = await tx.expense.create({
             data: {
@@ -23,6 +33,14 @@ async function createExpense(name, cost, materialId, description, userId){
 
 async function editExpense(id, name, cost, description, userId){
     const expense = await prisma.$transaction(async (tx) => {
+        // check the id exists
+        const fetchedExpense = await tx.expense.findUnique( { where: { id: id }} );
+            if(fetchedExpense == null) {
+                const err = new Error(`Expense with id ${id} does not exist.`);
+                err.code = 'EXPENSE_NONEXISTENT';
+                throw err;
+        }
+
         // edit the expense
         const editExpense = await tx.expense.update({
             where: {id: id},
@@ -72,6 +90,17 @@ async function deleteExpense(id, userId){
 
 async function createMoneyIn(name, amount, description, userId, FOId){
     const moneyIn = await prisma.$transaction(async (tx) => {
+        if(FOId !== null){
+            // check the foid exists
+            const fo = await tx.finishedObject.findUnique( { where: { id: FOId }} );
+            if(fo == null) {
+                const err = new Error(`Finished object with id ${FOId} does not exist.`);
+                err.code = 'FO_NONEXISTENT';
+                throw err;
+            }
+        }
+        
+
         // create the money in record in the table
         const createMoneyIn = await tx.moneyIn.create({
             data: {
@@ -92,6 +121,13 @@ async function createMoneyIn(name, amount, description, userId, FOId){
 
 async function editMoneyIn(id, name, amount, description, userId){
     const moneyInEdit = await prisma.$transaction(async (tx) => {
+        const fetchedMoneyIn = await tx.moneyIn.findUnique( { where: { id: id }} );
+        if(fetchedMoneyIn == null) {
+            const err = new Error(`Money in with id ${id} does not exist.`);
+            err.code = 'MONEY_IN_NONEXISTENT';
+            throw err;
+        }
+
         // edit the money in record in the table
         const moneyIn = await tx.moneyIn.update({
             where: {id: id},

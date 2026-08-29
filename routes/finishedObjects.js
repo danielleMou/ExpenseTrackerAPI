@@ -3,11 +3,13 @@ import express from "express";
 import parseId from "../utils/parseId.js";
 import {validateString, validateDecimalString, validatePositiveInteger} from "../utils/validators.js";
 import handlePrismaError from "../utils/prismaErrorHandler.js";
-import { createFinishedObject, hideUnsoldFO } from "../services/finishedObjectService.js";
+import { createFinishedObject, hideUnsoldFO, updateFinishedObject } from "../services/finishedObjectService.js";
 import { Decimal } from '@prisma/client/runtime/library';
+import { processSoldFo } from "../services/soldQueueService.js";
 
 const router = express.Router();
 
+// create a finished object
 router.post('/', async (req, res) => {
     try{
         const { name, description, categoryId, askingPrice, userId, materials } = req.body;
@@ -48,6 +50,8 @@ router.post('/', async (req, res) => {
     } catch (error) {
         console.log(error);
         if (handlePrismaError(error, res)) return;
+        if (error.code == 'MATERIAL_NONEXISTENT') return res.status(404).json({ error: "Material id does not exist"});
+        if (error.code == 'INSUFFICIENT_STOCK') return res.status(400).json({ error: "Not enough material stock."});
         res.status(500).json({ error: 'Could not create finished object.' });
     }
     
@@ -69,6 +73,8 @@ router.delete('/:id', async (req, res) => {
     } catch (error){
         console.log(error);
         if (handlePrismaError(error, res)) return;
+        if (error.code == 'FO_NONEXISTENT') return res.status(404).json({ error: "FO id does not exist"});
+        if (error.code == 'FO_SOLD') return res.status(400).json({ error: "FO already sold"});
         res.status(500).json({ error: 'Could not delete finished object.' });
     }
 });
@@ -94,7 +100,7 @@ router.get('/:id', async (req, res) => {
         const finishedObject = await prisma.finishedObject.findUnique({
             where: { id: id },
         }) 
-        if(!finishedObject){
+        if(finishedObject == undefined){
             return res.status(404).json({ error: "Finished object does not exist." });
         }
         res.json(finishedObject);
@@ -111,28 +117,74 @@ router.patch('/:id', async (req, res) => {
         const id = parseId(req.params.id)
         if (id == null) return res.status(400).json({ error: "Id must be a positive integer" });
 
-        if (name === undefined && askingPrice === undefined && pricePerUnit === undefined && description === undefined) {
+        const {name, description, askingPrice, status, userId} = req.body;
+
+        if (name === undefined && askingPrice === undefined && description === undefined && status === undefined) {
             return res.status(400).json({ error: "Must have at least one present field to patch." });
         }
 
+        if (req.body == []) return res.status(400).json({ error: "Must have at least one present field to patch." });
+
         const errors = [
             validateString(name, { fieldName: 'name', required: false, maxLength: 100}),
+            validateString(status, { fieldName: 'status', required: false, maxLength: 10}),
             validateDecimalString(askingPrice, { fieldName: 'askingPrice', required: false, maxDecimalPlaces: 2}),
-            validateString(description, { fieldName: 'description', required: false, maxLength: 400})
+            validateString(description, { fieldName: 'description', required: false, maxLength: 400}),
+            validatePositiveInteger(userId, { fieldName: 'userId', required: true})
         ].filter(Boolean);
 
         if(errors.length) return res.status(400).json({ errors });
 
-        const {name, description, askingPrice, status} = req.body;
-        const fo = await prisma.finishedObject.update({
-            where: {id: id},
-            data: { name, description, askingPrice, status }
-        });
-        res.json(fo);
+        const fo = await updateFinishedObject(id, name, description, askingPrice, status, userId);
+
+        res.status(200).json(fo);
     } catch (error){
         console.log(error);
         if (handlePrismaError(error, res)) return;
-        res.status(500).json({ error: 'Could not get finished object.' });
+        if (error.code == 'FO_NONEXISTENT') return res.status(404).json({ error: "FO id does not exist"});
+        res.status(500).json({ error: 'Could not update finished object.' });
+    }
+})
+
+// process sold fo
+router.post('/:id/process', async (req, res) => {
+    try{
+        const id = parseId(req.params.id)
+        if (id == null) return res.status(400).json({ error: "Id must be a positive integer" });
+
+        const {salePrice, expenses, userId} = req.body;
+
+        const errors = [
+            validateDecimalString(salePrice, { fieldName: 'salePrice', required: true, maxDecimalPlaces: 2}),
+            validatePositiveInteger(userId, { fieldName: 'userId', required: true})
+        ].filter(Boolean);
+
+        if(!Array.isArray(expenses)) return res.status(400).json({ error : "Expenses must be an array of the form: [{name, cost, description}, ... ]." });
+        // if(expenses.length <= 0) return res.status(400).json({ error : "Expenses array must be non-empty." });
+        for(const ex of expenses){
+            if(ex.name == null) return res.status(400).json({error : "Expenses must have a name." });
+            if(ex.cost == null) return res.status(400).json({ error : "Expenses must have a cost." });
+            if(ex.description == null) return res.status(400).json({ error : "Expenses must have a description." });
+
+            const errors = [
+                validateString(ex.name, { fieldName: 'name', required: true, maxLength: 50}),
+                validateDecimalString(ex.cost, { fieldName: 'cost', required: true, maxDecimalPlaces: 2}),
+                validateString(ex.description, { fieldName: 'description', required: true, maxLength: 200})
+            ].filter(Boolean);
+            if(errors.length) return res.status(400).json({ errors });
+        }
+
+        if(errors.length) return res.status(400).json({ errors });
+
+        const fo = await processSoldFo(id, salePrice, expenses, userId);
+
+        res.status(200).json(fo);
+    } catch (error){
+        console.log(error);
+        if (handlePrismaError(error, res)) return;
+        if (error.code == 'FO_NONEXISTENT') return res.status(404).json({ error: "FO id does not exist"});
+        if (error.code == 'FO_INVALID') return res.status(400).json({ error: "FO must be sold and not already be processed or deleted"});
+        res.status(500).json({ error: 'Could not update finished object.' });
     }
 })
 

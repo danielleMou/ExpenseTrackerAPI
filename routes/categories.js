@@ -40,9 +40,10 @@ router.patch('/:id', async (req, res) => {
         if (id == null) return res.status(400).json({ error: "Id must be a positive integer" });
 
         const name = req.body.name;
+        if(name === undefined) return res.status(400).json({ error: "Must have at least one field to patch." });
+
         const errors = [validateString(name, { fieldName: 'name', required: false, maxLength: 100 })].filter(Boolean);
         if (errors.length) return res.status(400).json({ errors });
-        if(name === undefined) return res.status(400).json({ error: "Must have at least one field to patch." });
 
         const category = await prisma.category.update({
             where: {id: id},

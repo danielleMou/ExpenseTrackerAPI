@@ -12,6 +12,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum FOStatus {
+  unlisted
+  listed
+  sold
+}
+
 model User {
   id Int @id @default(autoincrement())
   username String @unique
@@ -45,7 +51,7 @@ model FinishedObject {
   categoryId Int
   askingPrice Decimal
   productionCost Decimal
-  status String
+  status FOStatus @default(unlisted)
   isProcessed Boolean @default(false)
   isDeleted Boolean @default(false)
   user User @relation(fields: [userId], references: [id])

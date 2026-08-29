@@ -1,7 +1,29 @@
 import { describe, test, expect, beforeEach, afterAll } from 'vitest';
 import prisma from '../prisma.js';
 import resetDatabase from '../tests/resetDatabase.js';
-import { createMaterial, restockMaterial } from './materialService.js';
+import { createMaterial, restockMaterial, updateMaterial } from './materialService.js';
+
+async function makeUser() {
+  return prisma.user.create({ data: { username: "user", password: "pass" } });
+}
+
+async function makeCategory(userId, name = 'Fabric', type = 'material') {
+  return prisma.category.create({ data: { name, type, userId } });
+}
+
+async function makeMaterial(userId, categoryId, overrides = {}) {
+  return prisma.material.create({
+    data: {
+      name: 'Cotton',
+      unit: 'm',
+      quantity: '10',
+      pricePerUnit: '2.50',
+      categoryId,
+      userId,
+      ...overrides
+    }
+  });
+}
 
 describe('Create material', () => {
     beforeEach(async () => {
@@ -359,6 +381,139 @@ describe('Restock material', () => {
     const updated = await prisma.material.findUnique({ where: { id: material.id } });
     expect(updated.quantity.toString()).toBe('10');
     expect(await prisma.expense.findMany()).toHaveLength(0);
+  });
+
+});
+
+describe('updateMaterial', () => {
+  beforeEach(async () => { await resetDatabase(); });
+  afterAll(async () => { await prisma.$disconnect(); });
+
+  test('updates a single field and leaves the rest untouched', async () => {
+    const user = await makeUser();
+    const cat = await makeCategory(user.id);
+    const mat = await makeMaterial(user.id, cat.id);
+
+    await updateMaterial(mat.id, 'Organic Cotton', undefined, undefined, undefined, user.id);
+
+    const updated = await prisma.material.findUnique({ where: { id: mat.id } });
+    expect(updated.name).toBe('Organic Cotton');
+    expect(updated.unit).toBe('m');
+    expect(updated.pricePerUnit.toString()).toBe('2.5');
+    expect(updated.categoryId).toBe(cat.id);
+  });
+
+  test('updates multiple fields at once', async () => {
+    const user = await makeUser();
+    const cat = await makeCategory(user.id);
+    const other = await makeCategory(user.id, 'Thread');
+    const mat = await makeMaterial(user.id, cat.id);
+
+    await updateMaterial(mat.id, 'Linen', 'cm', '3.75', other.id, user.id);
+
+    const updated = await prisma.material.findUnique({ where: { id: mat.id } });
+    expect(updated.name).toBe('Linen');
+    expect(updated.unit).toBe('cm');
+    expect(updated.pricePerUnit.toString()).toBe('3.75');
+    expect(updated.categoryId).toBe(other.id);
+  });
+
+  test('never changes the quantity', async () => {
+    const user = await makeUser();
+    const cat = await makeCategory(user.id);
+    const mat = await makeMaterial(user.id, cat.id, { quantity: '10' });
+
+    await updateMaterial(mat.id, 'Linen', 'cm', '3.75', cat.id, user.id);
+
+    const updated = await prisma.material.findUnique({ where: { id: mat.id } });
+    expect(updated.quantity.toString()).toBe('10');
+  });
+
+  test('writes exactly one stock log linked to the material', async () => {
+    const user = await makeUser();
+    const cat = await makeCategory(user.id);
+    const mat = await makeMaterial(user.id, cat.id);
+
+    await updateMaterial(mat.id, 'Linen', undefined, undefined, undefined, user.id);
+
+    const logs = await prisma.stockLog.findMany();
+    expect(logs).toHaveLength(1);
+    expect(logs[0].materialId).toBe(mat.id);
+    expect(logs[0].userId).toBe(user.id);
+    expect(logs[0].action).toContain(String(mat.id));
+  });
+
+  test('the log names which fields changed', async () => {
+    const user = await makeUser();
+    const cat = await makeCategory(user.id);
+    const mat = await makeMaterial(user.id, cat.id);
+
+    await updateMaterial(mat.id, 'Linen', 'cm', undefined, undefined, user.id);
+
+    const logs = await prisma.stockLog.findMany();
+    expect(logs[0].action).toContain('name');
+    expect(logs[0].action).toContain('unit');
+    expect(logs[0].action).not.toContain('pricePerUnit');
+  });
+
+  test('returns the updated material', async () => {
+    const user = await makeUser();
+    const cat = await makeCategory(user.id);
+    const mat = await makeMaterial(user.id, cat.id);
+
+    const result = await updateMaterial(mat.id, 'Linen', undefined, undefined, undefined, user.id);
+
+    expect(result.name).toBe('Linen');
+  });
+
+  test('rejects a nonexistent material and writes no log', async () => {
+    const user = await makeUser();
+
+    await expect(
+      updateMaterial(999999, 'Linen', undefined, undefined, undefined, user.id)
+    ).rejects.toThrow();
+
+    expect(await prisma.stockLog.findMany()).toHaveLength(0);
+  });
+
+  test('rejects a nonexistent category and changes nothing', async () => {
+    const user = await makeUser();
+    const cat = await makeCategory(user.id);
+    const mat = await makeMaterial(user.id, cat.id);
+
+    await expect(
+      updateMaterial(mat.id, undefined, undefined, undefined, 999999, user.id)
+    ).rejects.toThrow();
+
+    const untouched = await prisma.material.findUnique({ where: { id: mat.id } });
+    expect(untouched.categoryId).toBe(cat.id);
+    expect(await prisma.stockLog.findMany()).toHaveLength(0);
+  });
+
+  test('rolls back the update when the log write fails', async () => {
+    const user = await makeUser();
+    const cat = await makeCategory(user.id);
+    const mat = await makeMaterial(user.id, cat.id);
+
+    await expect(
+      updateMaterial(mat.id, 'Linen', undefined, undefined, undefined, 999999)
+    ).rejects.toThrow();
+
+    const untouched = await prisma.material.findUnique({ where: { id: mat.id } });
+    expect(untouched.name).toBe('Cotton');
+  });
+
+  test('does not affect other materials', async () => {
+    const user = await makeUser();
+    const cat = await makeCategory(user.id);
+    const a = await makeMaterial(user.id, cat.id, { name: 'Cotton' });
+    const b = await makeMaterial(user.id, cat.id, { name: 'Linen' });
+
+    await updateMaterial(a.id, 'Organic Cotton', undefined, undefined, undefined, user.id);
+
+    const untouched = await prisma.material.findUnique({ where: { id: b.id } });
+    expect(untouched.name).toBe('Linen');
+    expect(await prisma.stockLog.findMany()).toHaveLength(1);
   });
 
 });

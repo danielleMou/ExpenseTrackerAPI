@@ -260,8 +260,6 @@ describe('createMoneyIn', () => {
     expect(await prisma.financialLog.findMany()).toHaveLength(1);
   });
 
-  // NOTE: this asserts the CURRENT return value, which is the transaction result,
-  // not the created row — check whether that is what you want.
   test('rolls back when the log write fails', async () => {
     const user = await makeUser();
 
@@ -368,7 +366,6 @@ describe('deleteMoneyIn', () => {
     expect(await prisma.financialLog.findMany()).toHaveLength(0);
   });
 
-  // documents the decision: the FO is NOT reverted, the user must do it manually
   test('leaves the linked FO marked sold', async () => {
     const user = await makeUser();
     const cat = await makeCategory(user.id, 'finishedObject', 'Bags');

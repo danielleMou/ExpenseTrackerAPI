@@ -3,7 +3,7 @@ import express from "express";
 import parseId from "../utils/parseId.js";
 import {validateString, validateDecimalString, validatePositiveInteger, validateBoolean} from "../utils/validators.js";
 import handlePrismaError from "../utils/prismaErrorHandler.js";
-import { restockMaterial, createMaterial } from "../services/materialService.js";
+import { restockMaterial, createMaterial, updateMaterial } from "../services/materialService.js";
 
 const router = express.Router();
 
@@ -28,7 +28,7 @@ router.get('/:id', async (req, res) => {
         const material = await prisma.material.findUnique({
             where: { id: id },
         }) 
-        if(!material){
+        if(material == undefined){
             return res.status(404).json({ error: "Material does not exist." });
         }
         res.json(material);
@@ -43,7 +43,7 @@ router.get('/:id', async (req, res) => {
 // partial update works because Prisma treats undefined fields as skip
 router.patch('/:id', async (req, res) => {
     try{
-        const { name, unit, pricePerUnit, categoryId } = req.body;
+        const { name, unit, pricePerUnit, categoryId, userId } = req.body;
         const id = parseId(req.params.id)
         if (id == null) return res.status(400).json({ error: "Id must be a positive integer" });
 
@@ -55,19 +55,19 @@ router.patch('/:id', async (req, res) => {
             validateString(name, { fieldName: 'name', required: false, maxLength: 100}),
             validateString(unit, { fieldName: 'unit', required: false, maxLength: 50}),
             validateDecimalString(pricePerUnit, { fieldName: 'pricePerUnit', required: false, maxDecimalPlaces: 2}),
-            validatePositiveInteger(categoryId, { fieldName: 'categoryId', required: false})
+            validatePositiveInteger(categoryId, { fieldName: 'categoryId', required: false}),
+            validatePositiveInteger(userId, { fieldName: 'userId', required: true})
         ].filter(Boolean);
 
         if(errors.length) return res.status(400).json({ errors });
 
-        const material = await prisma.material.update({
-            where: { id: id },
-            data: { name: name, pricePerUnit: pricePerUnit, unit: unit, categoryId: categoryId }
-        });
+        const material = await updateMaterial(id, name, unit, pricePerUnit, categoryId, userId);
+
         res.json(material);
     } catch (error){
         console.log(error);
         if (handlePrismaError(error, res)) return;
+        if (error.code == 'MATERIAL_NONEXISTENT') return res.status(404).json({ error: "Material id does not exist"});
         res.status(500).json({ error: 'Could not update material.' });
     } 
 });
@@ -100,7 +100,7 @@ router.post('/', async (req, res) => {
 });
 
 // restocking a material
-router.post('/restock/:id', async (req, res) => {
+router.post('/:id/restock', async (req, res) => {
     try{
         const { noUnits, pricePerUnit, isUpdated, userId} = req.body;
         const materialId = parseId(req.params.id)
@@ -117,10 +117,12 @@ router.post('/restock/:id', async (req, res) => {
 
         const restock = await restockMaterial(materialId, noUnits, pricePerUnit, isUpdated, userId);
 
-        res.status(201).json(restock);
+        res.status(200).json(restock);
     } catch (error) {
         console.log(error);
         if (handlePrismaError(error, res)) return;
+        if (error.code == 'MATERIAL_NONEXISTENT') return res.status(404).json({ error: "Material id does not exist"});
+        if (error.code == 'RESTOCK_BY_0') return res.status(400).json({ error: "Cannot restock by 0."});
         res.status(500).json({ error: 'Could not restock material.' });
     } 
 });
