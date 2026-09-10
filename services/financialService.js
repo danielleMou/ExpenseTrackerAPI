@@ -3,9 +3,9 @@ import { Decimal } from '@prisma/client/runtime/library';
 
 async function createExpense(name, cost, materialId, description, userId){
     const expense = await prisma.$transaction(async (tx) => {
-        // check the material id exists if present
+        // check the material id exists and belongs to the user
         if(materialId !== null){
-            const fetchedMaterial = await tx.material.findUnique( { where: { id: materialId }} );
+            const fetchedMaterial = await tx.material.findUnique( { where: { id: materialId, userId }} );
             if(fetchedMaterial == null) {
                 const err = new Error(`Material with id ${materialId} does not exist.`);
                 err.code = 'MATERIAL_NONEXISTENT';
@@ -33,8 +33,8 @@ async function createExpense(name, cost, materialId, description, userId){
 
 async function editExpense(id, name, cost, description, userId){
     const expense = await prisma.$transaction(async (tx) => {
-        // check the id exists
-        const fetchedExpense = await tx.expense.findUnique( { where: { id: id }} );
+        // check the id exists and belongs to the user
+        const fetchedExpense = await tx.expense.findFirst( { where: { id, userId }} );
             if(fetchedExpense == null) {
                 const err = new Error(`Expense with id ${id} does not exist.`);
                 err.code = 'EXPENSE_NONEXISTENT';
@@ -62,8 +62,8 @@ async function editExpense(id, name, cost, description, userId){
 
 async function deleteExpense(id, userId){
     const deleteEx = await prisma.$transaction(async (tx) => {
-        // check the id exists
-        const fetchedExpense = await tx.expense.findUnique( { where: { id: id }} );
+        // check the id exists and belongs to user
+        const fetchedExpense = await tx.expense.findFirst( { where: { id, userId }} );
             if(fetchedExpense == null) {
                 const err = new Error(`Expense with id ${id} does not exist.`);
                 err.code = 'EXPENSE_NONEXISTENT';
@@ -91,8 +91,8 @@ async function deleteExpense(id, userId){
 async function createMoneyIn(name, amount, description, userId, FOId){
     const moneyIn = await prisma.$transaction(async (tx) => {
         if(FOId !== null){
-            // check the foid exists
-            const fo = await tx.finishedObject.findUnique( { where: { id: FOId }} );
+            // check the foid exists and belongs to the user
+            const fo = await tx.finishedObject.findFirst( { where: { id: FOId, userId }} );
             if(fo == null) {
                 const err = new Error(`Finished object with id ${FOId} does not exist.`);
                 err.code = 'FO_NONEXISTENT';
@@ -121,7 +121,7 @@ async function createMoneyIn(name, amount, description, userId, FOId){
 
 async function editMoneyIn(id, name, amount, description, userId){
     const moneyInEdit = await prisma.$transaction(async (tx) => {
-        const fetchedMoneyIn = await tx.moneyIn.findUnique( { where: { id: id }} );
+        const fetchedMoneyIn = await tx.moneyIn.findFirst( { where: { id, userId }} );
         if(fetchedMoneyIn == null) {
             const err = new Error(`Money in with id ${id} does not exist.`);
             err.code = 'MONEY_IN_NONEXISTENT';
@@ -150,7 +150,7 @@ async function editMoneyIn(id, name, amount, description, userId){
 async function deleteMoneyIn(id, userId){
     const deleteMoneyIn = await prisma.$transaction(async (tx) => {
         // check the id exists
-        const fetchedMoneyIn = await tx.moneyIn.findUnique( { where: { id: id }} );
+        const fetchedMoneyIn = await tx.moneyIn.findFirst( { where: { id, userId }} );
             if(fetchedMoneyIn == null) {
                 const err = new Error(`Money in with id ${id} does not exist.`);
                 err.code = 'MONEY_IN_NONEXISTENT';

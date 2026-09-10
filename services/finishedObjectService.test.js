@@ -4,7 +4,7 @@ import resetDatabase from '../tests/resetDatabase.js';
 import { createFinishedObject, hideUnsoldFO, updateFinishedObject } from './finishedObjectService.js';
 
 async function makeUser() {
-  return prisma.user.create({ data: { username: "user 1", password: "password" } });
+  return prisma.user.create({ data: { username: "user 1", passwordHash: "password" } });
 }
 
 async function makeCategory(userId, type = 'material', name = 'Fabric') {
@@ -365,7 +365,7 @@ describe('updateFinishedObject', () => {
     const cat = await makeFoCategory(user.id);
     const fo = await makeFO(user.id, cat.id);
 
-    await updateFinishedObject(fo.id, 'Large Tote', undefined, undefined, undefined, user.id);
+    await updateFinishedObject(fo.id, 'Large Tote', undefined, undefined, undefined, undefined, user.id);
 
     const updated = await prisma.finishedObject.findUnique({ where: { id: fo.id } });
     expect(updated.name).toBe('Large Tote');
@@ -379,7 +379,7 @@ describe('updateFinishedObject', () => {
     const cat = await makeFoCategory(user.id);
     const fo = await makeFO(user.id, cat.id);
 
-    await updateFinishedObject(fo.id, 'Large Tote', 'Now in linen', '32.50', 'listed', user.id);
+    await updateFinishedObject(fo.id, 'Large Tote', 'Now in linen', '32.50', undefined, 'listed', user.id);
 
     const updated = await prisma.finishedObject.findUnique({ where: { id: fo.id } });
     expect(updated.name).toBe('Large Tote');
@@ -393,7 +393,7 @@ describe('updateFinishedObject', () => {
     const cat = await makeFoCategory(user.id);
     const fo = await makeFO(user.id, cat.id);
 
-    await updateFinishedObject(fo.id, 'Large Tote', 'x', '32.50', 'listed', user.id);
+    await updateFinishedObject(fo.id, 'Large Tote', 'x', '32.50', undefined, 'listed', user.id);
 
     const updated = await prisma.finishedObject.findUnique({ where: { id: fo.id } });
     expect(updated.productionCost.toString()).toBe('6');
@@ -407,7 +407,7 @@ describe('updateFinishedObject', () => {
     const cat = await makeFoCategory(user.id);
     const fo = await makeFO(user.id, cat.id);
 
-    await updateFinishedObject(fo.id, undefined, undefined, undefined, 'sold', user.id);
+    await updateFinishedObject(fo.id, undefined, undefined, undefined, undefined, 'sold', user.id);
 
     const updated = await prisma.finishedObject.findUnique({ where: { id: fo.id } });
     expect(updated.status).toBe('sold');
@@ -419,7 +419,7 @@ describe('updateFinishedObject', () => {
     const cat = await makeFoCategory(user.id);
     const fo = await makeFO(user.id, cat.id);
 
-    await updateFinishedObject(fo.id, 'Large Tote', undefined, undefined, undefined, user.id);
+    await updateFinishedObject(fo.id, 'Large Tote', undefined, undefined, undefined, undefined, user.id);
 
     const logs = await prisma.FOlog.findMany();
     expect(logs).toHaveLength(1);
@@ -432,7 +432,7 @@ describe('updateFinishedObject', () => {
     const cat = await makeFoCategory(user.id);
     const fo = await makeFO(user.id, cat.id);
 
-    await updateFinishedObject(fo.id, 'Large Tote', undefined, '32.50', undefined, user.id);
+    await updateFinishedObject(fo.id, 'Large Tote', undefined, '32.50', undefined, undefined, user.id);
 
     const logs = await prisma.FOlog.findMany();
     expect(logs[0].action).toContain('name');
@@ -446,7 +446,7 @@ describe('updateFinishedObject', () => {
     const cat = await makeFoCategory(user.id);
     const fo = await makeFO(user.id, cat.id);
 
-    await updateFinishedObject(fo.id, 'Large Tote', undefined, undefined, undefined, user.id);
+    await updateFinishedObject(fo.id, 'Large Tote', undefined, undefined, undefined, undefined, user.id);
 
     const logs = await prisma.FOlog.findMany();
     expect(logs[0].action).toContain('Large Tote');
@@ -457,7 +457,7 @@ describe('updateFinishedObject', () => {
     const cat = await makeFoCategory(user.id);
     const fo = await makeFO(user.id, cat.id);
 
-    const result = await updateFinishedObject(fo.id, 'Large Tote', undefined, undefined, undefined, user.id);
+    const result = await updateFinishedObject(fo.id, 'Large Tote', undefined, undefined, undefined, undefined, user.id);
 
     expect(result.name).toBe('Large Tote');
   });
@@ -466,7 +466,7 @@ describe('updateFinishedObject', () => {
     const user = await makeUser();
 
     await expect(
-      updateFinishedObject(999999, 'Large Tote', undefined, undefined, undefined, user.id)
+      updateFinishedObject(999999, 'Large Tote', undefined, undefined, undefined, undefined, user.id)
     ).rejects.toMatchObject({ code: 'FO_NONEXISTENT' });
 
     expect(await prisma.FOlog.findMany()).toHaveLength(0);
@@ -478,7 +478,7 @@ describe('updateFinishedObject', () => {
     const fo = await makeFO(user.id, cat.id);
 
     await expect(
-      updateFinishedObject(fo.id, 'Large Tote', undefined, undefined, undefined, 999999)
+      updateFinishedObject(fo.id, 'Large Tote', undefined, undefined, undefined, undefined, 999999)
     ).rejects.toThrow();
 
     const untouched = await prisma.finishedObject.findUnique({ where: { id: fo.id } });
@@ -491,7 +491,7 @@ describe('updateFinishedObject', () => {
     const a = await makeFO(user.id, cat.id, { name: 'Tote' });
     const b = await makeFO(user.id, cat.id, { name: 'Pouch' });
 
-    await updateFinishedObject(a.id, 'Large Tote', undefined, undefined, undefined, user.id);
+    await updateFinishedObject(a.id, 'Large Tote', undefined, undefined, undefined, undefined, user.id);
 
     const untouched = await prisma.finishedObject.findUnique({ where: { id: b.id } });
     expect(untouched.name).toBe('Pouch');

@@ -10,7 +10,9 @@ const router = express.Router();
 // Get all materials
 router.get('/', async (req, res) => {
     try{
-       const materials = await prisma.material.findMany();
+        const userId = req.user.id;
+        const materials = await prisma.material.findMany( { where: { userId }} );
+        
         res.json(materials); 
     } catch (error) {
         console.log(error);
@@ -22,12 +24,15 @@ router.get('/', async (req, res) => {
 // Get material by id
 router.get('/:id', async (req, res) => {
     try{
-        const id = parseId(req.params.id)
+        const userId = req.user.id;
+
+        const id = parseId(req.params.id);
         if (id == null) return res.status(400).json({ error: "Id must be a positive integer" });
 
-        const material = await prisma.material.findUnique({
-            where: { id: id },
-        }) 
+        const material = await prisma.material.findFirst({
+            where: { id, userId },
+        }); 
+
         if(material == undefined){
             return res.status(404).json({ error: "Material does not exist." });
         }
@@ -43,7 +48,9 @@ router.get('/:id', async (req, res) => {
 // partial update works because Prisma treats undefined fields as skip
 router.patch('/:id', async (req, res) => {
     try{
-        const { name, unit, pricePerUnit, categoryId, userId } = req.body;
+        const userId = req.user.id;
+
+        const { name, unit, pricePerUnit, categoryId} = req.body;
         const id = parseId(req.params.id)
         if (id == null) return res.status(400).json({ error: "Id must be a positive integer" });
 
@@ -55,8 +62,7 @@ router.patch('/:id', async (req, res) => {
             validateString(name, { fieldName: 'name', required: false, maxLength: 100}),
             validateString(unit, { fieldName: 'unit', required: false, maxLength: 50}),
             validateDecimalString(pricePerUnit, { fieldName: 'pricePerUnit', required: false, maxDecimalPlaces: 2}),
-            validatePositiveInteger(categoryId, { fieldName: 'categoryId', required: false}),
-            validatePositiveInteger(userId, { fieldName: 'userId', required: true})
+            validatePositiveInteger(categoryId, { fieldName: 'categoryId', required: false})
         ].filter(Boolean);
 
         if(errors.length) return res.status(400).json({ errors });
@@ -68,6 +74,7 @@ router.patch('/:id', async (req, res) => {
         console.log(error);
         if (handlePrismaError(error, res)) return;
         if (error.code == 'MATERIAL_NONEXISTENT') return res.status(404).json({ error: "Material id does not exist"});
+        if (error.code == 'CAT_NONEXISTENT') return res.status(400).json({ error: "Category does not exist"});
         res.status(500).json({ error: 'Could not update material.' });
     } 
 });
@@ -75,7 +82,9 @@ router.patch('/:id', async (req, res) => {
 // Create new material
 router.post('/', async (req, res) => {
     try{
-        const { name, unit, pricePerUnit, quantity, categoryId, createExpense, userId } = req.body;
+        const userId = req.user.id;
+
+        const { name, unit, pricePerUnit, quantity, categoryId, createExpense } = req.body;
 
         const errors = [
             validateString(name, { fieldName: 'name', required: true, maxLength: 100}),
@@ -83,8 +92,7 @@ router.post('/', async (req, res) => {
             validateDecimalString(pricePerUnit, { fieldName: 'pricePerUnit', required: true, maxDecimalPlaces: 2}),
             validateDecimalString(quantity, { fieldName: 'quantity', required: true, maxDecimalPlaces: 2}),
             validatePositiveInteger(categoryId, { fieldName: 'categoryId', required: true}),
-            validateBoolean(createExpense, { fieldName: 'createExpense', required: true}),
-            validatePositiveInteger(userId, { fieldName: 'userId', required: true})
+            validateBoolean(createExpense, { fieldName: 'createExpense', required: true})
         ].filter(Boolean);
 
         if(errors.length) return res.status(400).json({ errors });
@@ -95,6 +103,7 @@ router.post('/', async (req, res) => {
     } catch (error) {
         console.log(error);
         if (handlePrismaError(error, res)) return;
+        if (error.code == 'CAT_NONEXISTENT') return res.status(400).json({ error: "Category does not exist"});
         res.status(500).json({ error: 'Could not create material.' });
     }
 });
@@ -102,7 +111,10 @@ router.post('/', async (req, res) => {
 // restocking a material
 router.post('/:id/restock', async (req, res) => {
     try{
-        const { noUnits, pricePerUnit, isUpdated, userId} = req.body;
+        const userId = req.user.id;
+
+        const { noUnits, pricePerUnit, isUpdated } = req.body;
+
         const materialId = parseId(req.params.id)
         if (materialId == null) return res.status(400).json({ error: "Id must be a positive integer" });
 
@@ -110,8 +122,7 @@ router.post('/:id/restock', async (req, res) => {
         const errors = [
             validateDecimalString(noUnits, { fieldName: 'noUnits', required: true, maxDecimalPlaces: 2}),
             validateDecimalString(pricePerUnit, { fieldName: 'pricePerUnit', required: true, maxDecimalPlaces: 2}),
-            validateBoolean(isUpdated, { fieldName: 'isUpdated', required: true}),
-            validatePositiveInteger(userId, { fieldName: 'userId', required: true})
+            validateBoolean(isUpdated, { fieldName: 'isUpdated', required: true})
         ].filter(Boolean);
         if(errors.length) return res.status(400).json({ errors });
 

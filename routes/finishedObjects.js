@@ -12,7 +12,9 @@ const router = express.Router();
 // create a finished object
 router.post('/', async (req, res) => {
     try{
-        const { name, description, categoryId, askingPrice, userId, materials } = req.body;
+        const userId = req.user.id;
+
+        const { name, description, categoryId, askingPrice, materials } = req.body;
 
         // validate materials array - should be of form [{materialId, quantityUsed}, ... ]
         if(!Array.isArray(materials)) return res.status(400).json({ error : "Materials must be an array of the form: [{materialId, quantityUsed}, ... ]." });
@@ -27,6 +29,7 @@ router.post('/', async (req, res) => {
             ].filter(Boolean);
             if(errors.length) return res.status(400).json({ errors });
         }
+
         // check for duplicate material ids - use map
         const materialsSet = new Set();
         for(const material of materials){
@@ -39,8 +42,7 @@ router.post('/', async (req, res) => {
             validateString(name, { fieldName: 'name', required: false, maxLength: 100}),
             validateString(description, { fieldName: 'description', required: false, maxLength: 400}),
             validatePositiveInteger(categoryId, { fieldName: 'categoryId', required: true}),
-            validateDecimalString(askingPrice, { fieldName: 'askingPrice', required: false, maxDecimalPlaces: 2}),
-            validatePositiveInteger(userId, { fieldName: 'userId', required: true})
+            validateDecimalString(askingPrice, { fieldName: 'askingPrice', required: false, maxDecimalPlaces: 2})
         ].filter(Boolean);
         if(errors.length) return res.status(400).json({ errors });
 
@@ -52,6 +54,7 @@ router.post('/', async (req, res) => {
         if (handlePrismaError(error, res)) return;
         if (error.code == 'MATERIAL_NONEXISTENT') return res.status(404).json({ error: "Material id does not exist"});
         if (error.code == 'INSUFFICIENT_STOCK') return res.status(400).json({ error: "Not enough material stock."});
+        if (error.code == 'CAT_NONEXISTENT') return res.status(400).json({ error: "Category does not exist."});
         res.status(500).json({ error: 'Could not create finished object.' });
     }
     
@@ -60,12 +63,10 @@ router.post('/', async (req, res) => {
 // Finished objects - hides unsold FOs - soft delete
 router.delete('/:id', async (req, res) => {
     try{
+        const userId = req.user.id;
+
         const id = parseId(req.params.id)
         if (id == null) return res.status(400).json({ error: "Id must be a positive integer" });
-
-        const { userId } = req.body;
-        const errors = [ validatePositiveInteger(userId, { fieldName: 'userId', required: true}) ].filter(Boolean);
-        if(errors.length) return res.status(400).json({ errors });
 
         const hideFO = await hideUnsoldFO(id, userId);
         res.status(200).json(hideFO);
@@ -82,7 +83,9 @@ router.delete('/:id', async (req, res) => {
 // Finsihed objects - view all
 router.get('/', async (req, res) => {
     try{
-        const fos = await prisma.finishedObject.findMany();
+        const userId = req.user.id;
+        const fos = await prisma.finishedObject.findMany({ where: { userId }});
+
         res.json(fos); 
     } catch (error){
         console.log(error);
@@ -94,12 +97,15 @@ router.get('/', async (req, res) => {
 // Finished object - get by id
 router.get('/:id', async (req, res) => {
     try{
+        const userId = req.user.id;
+
         const id = parseId(req.params.id)
         if (id == null) return res.status(400).json({ error: "Id must be a positive integer" });
 
-        const finishedObject = await prisma.finishedObject.findUnique({
-            where: { id: id },
+        const finishedObject = await prisma.finishedObject.findFirst({
+            where: { id, userId },
         }) 
+
         if(finishedObject == undefined){
             return res.status(404).json({ error: "Finished object does not exist." });
         }
@@ -114,10 +120,12 @@ router.get('/:id', async (req, res) => {
 // Finished object - update attributes
 router.patch('/:id', async (req, res) => {
     try{
+        const userId = req.user.id;
+
         const id = parseId(req.params.id)
         if (id == null) return res.status(400).json({ error: "Id must be a positive integer" });
 
-        const {name, description, askingPrice, status, userId} = req.body;
+        const {name, description, askingPrice, categoryId, status} = req.body;
 
         if (name === undefined && askingPrice === undefined && description === undefined && status === undefined) {
             return res.status(400).json({ error: "Must have at least one present field to patch." });
@@ -130,18 +138,19 @@ router.patch('/:id', async (req, res) => {
             validateString(status, { fieldName: 'status', required: false, maxLength: 10}),
             validateDecimalString(askingPrice, { fieldName: 'askingPrice', required: false, maxDecimalPlaces: 2}),
             validateString(description, { fieldName: 'description', required: false, maxLength: 400}),
-            validatePositiveInteger(userId, { fieldName: 'userId', required: true})
+            validatePositiveInteger(categoryId, { fieldName: 'categoryId', required: false})
         ].filter(Boolean);
 
         if(errors.length) return res.status(400).json({ errors });
 
-        const fo = await updateFinishedObject(id, name, description, askingPrice, status, userId);
+        const fo = await updateFinishedObject(id, name, description, askingPrice, categoryId, status, userId);
 
         res.status(200).json(fo);
     } catch (error){
         console.log(error);
         if (handlePrismaError(error, res)) return;
         if (error.code == 'FO_NONEXISTENT') return res.status(404).json({ error: "FO id does not exist"});
+        if (error.code == 'CAT_NONEXISTENT') return res.status(400).json({ error: "Category does not exist"});
         res.status(500).json({ error: 'Could not update finished object.' });
     }
 })
@@ -149,14 +158,15 @@ router.patch('/:id', async (req, res) => {
 // process sold fo
 router.post('/:id/process', async (req, res) => {
     try{
+        const userId = req.user.id;
+
         const id = parseId(req.params.id)
         if (id == null) return res.status(400).json({ error: "Id must be a positive integer" });
 
-        const {salePrice, expenses, userId} = req.body;
+        const {salePrice, expenses} = req.body;
 
         const errors = [
-            validateDecimalString(salePrice, { fieldName: 'salePrice', required: true, maxDecimalPlaces: 2}),
-            validatePositiveInteger(userId, { fieldName: 'userId', required: true})
+            validateDecimalString(salePrice, { fieldName: 'salePrice', required: true, maxDecimalPlaces: 2})
         ].filter(Boolean);
 
         if(!Array.isArray(expenses)) return res.status(400).json({ error : "Expenses must be an array of the form: [{name, cost, description}, ... ]." });

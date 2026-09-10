@@ -4,7 +4,7 @@ import resetDatabase from '../tests/resetDatabase.js';
 import { createExpense, editExpense, deleteExpense, createMoneyIn, editMoneyIn, deleteMoneyIn} from './financialService.js';
 
 async function makeUser() {
-  return prisma.user.create({ data: { username: "user", password: "password" } });
+  return prisma.user.create({ data: { username: "user", passwordHash: "password" } });
 }
 
 async function makeCategory(userId, type = 'material', name = 'Fabric') {

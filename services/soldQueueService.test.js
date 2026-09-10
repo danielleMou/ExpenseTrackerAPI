@@ -4,7 +4,7 @@ import resetDatabase from '../tests/resetDatabase.js';
 import { processSoldFo } from './soldQueueService.js';
 
 async function makeUser() {
-  return prisma.user.create({ data: { username: 'user', password: 'pass' } });
+  return prisma.user.create({ data: { username: 'user', passwordHash: 'pass' } });
 }
 
 async function makeCategory(userId, type = 'finishedObject', name = 'Bags') {

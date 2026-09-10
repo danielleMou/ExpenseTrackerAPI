@@ -1,5 +1,5 @@
 // value: the value to be validated
-// options: option object of the form {fieldName: "name", required: t/f, maxLength/maxDecimalPlaces: }
+// options: option object of the form {fieldName: "name", required: t/f, maxLength/maxDecimalPlaces, minLength: }
 
 function validateString(value, options){
     if(options.required && value === undefined) return `${options.fieldName} is a required field.`;
@@ -13,6 +13,10 @@ function validateString(value, options){
 
     if(options.maxLength !== undefined){
         if(value.length > options.maxLength) return `${options.fieldName} must be less than or equal to ${options.maxLength} characters.`;
+    }
+
+    if(options.minLength !== undefined){
+        if(value.length < options.minLength) return `${options.fieldName} must be greater than or equal to ${options.maxLength} characters.`;
     }
     return null;
 }

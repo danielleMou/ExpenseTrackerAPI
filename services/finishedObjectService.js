@@ -11,9 +11,17 @@ async function createFinishedObject(name, description, categoryId, askingPrice, 
     }
 
     const finishedObject = await prisma.$transaction(async (tx) => {
+        // check category exists and belongs to user
+        const catOwner = await tx.category.findFirst({ where: { id: categoryId, userId }});
+        if(catOwner == null){
+            const err = new Error(`Category with id ${categoryId} does not exist.`);
+            err.code = 'CAT_NONEXISTENT';
+            throw err;
+        }
+
         // retrieve all relavent materials
         const materialIds = materials.map((x) => { return x.materialId }); // an array of required material ids
-        const fetchedMaterials = await tx.material.findMany({ where: { id: { in: materialIds } } }); // array of material objects from the db
+        const fetchedMaterials = await tx.material.findMany({ where: { id: { in: materialIds }, userId } }); // array of material objects from the db
 
         // create a materials map for easy lookup
         const materialsMap = new Map();
@@ -23,7 +31,7 @@ async function createFinishedObject(name, description, categoryId, askingPrice, 
         let productionCost = new Decimal(0);
         for(const material of materials) {
             const fetchedMaterial = materialsMap.get(material.materialId);
-            // Check material exists
+            // Check material exists and belongs to user
             if(fetchedMaterial == null){
                 // error
                 const err = new Error(`Material with id ${material.materialId} does not exist.`);
@@ -89,8 +97,8 @@ async function createFinishedObject(name, description, categoryId, askingPrice, 
 async function hideUnsoldFO(foId, userId){
 
     const deleteFO = await prisma.$transaction(async (tx) => {
-        // check that the finsihed object exists
-        const fo = await tx.finishedObject.findUnique( { where: { id: foId }} );
+        // check that the finsihed object exists and belongs to user
+        const fo = await tx.finishedObject.findFirst( { where: { id: foId, userId }} );
         if(fo == null) {
             const err = new Error(`Finished object with id ${foId} does not exist.`);
             err.code = 'FO_NONEXISTENT';
@@ -123,20 +131,28 @@ async function hideUnsoldFO(foId, userId){
     return deleteFO;
 }
 
-async function updateFinishedObject(id, name, description, askingPrice, status, userId){
+async function updateFinishedObject(id, name, description, askingPrice, categoryId, status, userId){
     const updateFo = await prisma.$transaction(async (tx) => {
-        // check the id exists
-        const fo = await tx.finishedObject.findUnique( { where: { id: id }} );
+        // check the id exists and belongs to user
+        const fo = await tx.finishedObject.findUnique( { where: { id, userId }} );
         if(fo == null) {
             const err = new Error(`Finished object with id ${id} does not exist.`);
             err.code = 'FO_NONEXISTENT';
             throw err;
         }
 
+        // check the category belongs to user
+        const catOwner = await tx.category.findFirst({ where: { id: categoryId, userId }});
+        if(catOwner == null){
+            const err = new Error(`Category with id ${categoryId} does not exist.`);
+            err.code = 'CAT_NONEXISTENT';
+            throw err;
+        }
+
         // update the fo
         const updatedFo = await tx.finishedObject.update({
             where: {id: id},
-            data: { name, description, askingPrice, status }
+            data: { name, description, askingPrice, categoryId, status }
         });
 
         // get a list of the updated fields

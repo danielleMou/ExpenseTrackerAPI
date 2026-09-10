@@ -6,7 +6,9 @@ const router = express.Router();
 // view stock logs
 router.get('/stock', async (req, res) => {
     try{
-        const stockLogs = await prisma.stockLog.findMany();
+        const userId = req.user.id;
+
+        const stockLogs = await prisma.stockLog.findMany({ where: { userId }});
         res.json(stockLogs);
     } catch (error){
         console.log(error);
@@ -19,7 +21,9 @@ router.get('/stock', async (req, res) => {
 // view financial logs
 router.get('/financial', async (req, res) => {
     try{
-        const financiallogs = await prisma.financialLog.findMany();
+        const userId = req.user.id;
+
+        const financiallogs = await prisma.financialLog.findMany({ where: { userId }});
         res.json(financiallogs);
     } catch (error) {
         console.log(error);
@@ -32,7 +36,9 @@ router.get('/financial', async (req, res) => {
 // view fo logs 
 router.get('/finishedobject', async (req, res) => {
     try {
-        const fologs = await prisma.fOlog.findMany();
+        const userId = req.user.id;
+
+        const fologs = await prisma.fOlog.findMany({ where: { userId }});
         res.json(fologs); 
     } catch (error){
         console.log(error);

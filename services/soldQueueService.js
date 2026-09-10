@@ -4,8 +4,8 @@ import { Decimal } from '@prisma/client/runtime/library';
 // expenses in the form of [{name, cost, description}, ... ]
 async function processSoldFo(FOid, salePrice, expenses, userId){
     const processFo = await prisma.$transaction( async (tx) => {
-        // check the finished object exists
-        const fo = await tx.finishedObject.findUnique( { where: { id: FOid }} );
+        // check the finished object exists and belongs to user
+        const fo = await tx.finishedObject.findUnique( { where: { id: FOid, userId }} );
         if(fo == null) {
             const err = new Error(`Finished object with id ${FOid} does not exist.`);
             err.code = 'FO_NONEXISTENT';

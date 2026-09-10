@@ -10,14 +10,15 @@ const router = express.Router();
 // Create Expense
 router.post('/', async (req, res) => {
     try{
-        const { name, cost, materialId, description, userId } = req.body;
+        const userId = req.user.id;
+
+        const { name, cost, materialId, description } = req.body;
 
         const errors = [
             validateString(name, { fieldName: 'name', required: true, maxLength: 100}),
             validateDecimalString(cost, { fieldName: 'cost', required: true, maxDecimalPlaces: 2}),
             validatePositiveInteger(materialId, { fieldName: 'materialId', required: false, nullable: true}),
-            validateString(description, { fieldName: 'description', required: true, maxLength: 400}),
-            validatePositiveInteger(userId, { fieldName: 'userId', required: true})
+            validateString(description, { fieldName: 'description', required: true, maxLength: 400})
         ].filter(Boolean);
 
         if(errors.length) return res.status(400).json({ errors });
@@ -36,7 +37,9 @@ router.post('/', async (req, res) => {
 // View all expenses
 router.get('/', async (req, res) => {
     try{
-        const expenses = await prisma.expense.findMany();
+        const userId = req.user.id;
+
+        const expenses = await prisma.expense.findMany({ where: { userId } });
         res.json(expenses); 
     } catch (error){
         console.log(error);
@@ -49,18 +52,19 @@ router.get('/', async (req, res) => {
 // Update/Edit an expense
 router.patch('/:id', async (req, res) => {
     try{
+        const userId = req.user.id;
+
         const id = parseId(req.params.id)
         if (id == null) return res.status(400).json({ error: "Id must be a positive integer" });
 
-        const { name, cost, description, userId } = req.body;
+        const { name, cost, description } = req.body;
 
         if(name === undefined && cost === undefined && description === undefined) return res.status(400).json({ error: "Must have at least one field to patch." });
 
         const errors = [
             validateString(name, { fieldName: 'name', required: false, maxLength: 100}),
             validateDecimalString(cost, { fieldName: 'cost', required: false, maxDecimalPlaces: 2}),
-            validateString(description, { fieldName: 'description', required: false, maxLength: 400}),
-            validatePositiveInteger(userId, { fieldName: 'userId', required: true})
+            validateString(description, { fieldName: 'description', required: false, maxLength: 400})
         ].filter(Boolean);
 
         if(errors.length) return res.status(400).json({ errors });
@@ -77,12 +81,10 @@ router.patch('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
     try{
+        const userId = req.user.id;
+
         const id = parseId(req.params.id)
         if (id == null) return res.status(400).json({ error: "Id must be a positive integer" });
-
-        const { userId } = req.body;
-        const errors = [ validatePositiveInteger(userId, { fieldName: 'userId', required: true}) ].filter(Boolean);
-        if(errors.length) return res.status(400).json({ errors });
 
         const deletedExpense = await deleteExpense(id, userId);
         res.status(200).json(deletedExpense);

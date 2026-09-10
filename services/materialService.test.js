@@ -4,7 +4,7 @@ import resetDatabase from '../tests/resetDatabase.js';
 import { createMaterial, restockMaterial, updateMaterial } from './materialService.js';
 
 async function makeUser() {
-  return prisma.user.create({ data: { username: "user", password: "pass" } });
+  return prisma.user.create({ data: { username: "user", passwordHash: "pass" } });
 }
 
 async function makeCategory(userId, name = 'Fabric', type = 'material') {
@@ -37,7 +37,7 @@ describe('Create material', () => {
     test('Create material with expense and logs when quantity > 0', async () => {
         // for a material to be created, a user and a category need to exist
         const user = await prisma.user.create({
-            data: { username: "user 1", password: "password"}
+            data: { username: "user 1", passwordHash: "password"}
         })
         const category = await prisma.category.create({
             data: { name: "Fabric", type: "material", userId: user.id }
@@ -69,7 +69,7 @@ describe('Create material', () => {
     test('Create no expense or financial log when quantity is 0', async () => {
         // for a material to be created, a user and a category need to exist
         const user = await prisma.user.create({
-            data: { username: "user 1", password: "password"}
+            data: { username: "user 1", passwordHash: "password"}
         });
         const category = await prisma.category.create({
             data: { name: "Fabric", type: "material", userId: user.id }
@@ -99,7 +99,7 @@ describe('Create material', () => {
     test('Category does not exists', async () => {
         // for a material to be created, a user and a category need to exist
         const user = await prisma.user.create({
-            data: { username: "user 1", password: "password"}
+            data: { username: "user 1", passwordHash: "password"}
         });
 
         await expect(createMaterial("linen", "m", 5, 10, 999, true, user.id)).rejects.toThrow();
@@ -113,7 +113,7 @@ describe('Create material', () => {
     test('fractional quantities', async () => {
         // for a material to be created, a user and a category need to exist
         const user = await prisma.user.create({
-            data: { username: "user 1", password: "password"}
+            data: { username: "user 1", passwordHash: "password"}
         });
         const category = await prisma.category.create({
             data: { name: "Fabric", type: "material", userId: user.id }
@@ -145,7 +145,7 @@ describe('Create material', () => {
     test('fractional quantities 2', async () => {
         // for a material to be created, a user and a category need to exist
         const user = await prisma.user.create({
-            data: { username: "user 1", password: "password"}
+            data: { username: "user 1", passwordHash: "password"}
         });
         const category = await prisma.category.create({
             data: { name: "Fabric", type: "material", userId: user.id }
@@ -177,7 +177,7 @@ describe('Create material', () => {
     test('quantity is greater than 0 and create expense is false', async () => {
         // for a material to be created, a user and a category need to exist
         const user = await prisma.user.create({
-            data: { username: "user 1", password: "password"}
+            data: { username: "user 1", passwordHash: "password"}
         });
         const category = await prisma.category.create({
             data: { name: "Fabric", type: "material", userId: user.id }
@@ -220,7 +220,7 @@ describe('Restock material', () => {
     // set up a user, category and a material that will be restocked
     async function setup(quantity, pricePerUnit) {
     const user = await prisma.user.create({
-      data: { username: "user 1", password: "password" }
+      data: { username: "user 1", passwordHash: "password" }
     });
     const category = await prisma.category.create({
       data: { name: 'Fabric', type: 'material', userId: user.id }

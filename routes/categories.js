@@ -8,14 +8,14 @@ const router = express.Router();
 
 // Create a new category
 router.post('/', async (req, res) => {
-    
     try{
-        const { name, type, userId } = req.body;
+        const userId = req.user.id;
+
+        const { name, type} = req.body;
 
         const errors = [
             validateString(name, { fieldName: 'name', required: true, maxLength: 100}),
-            validateString(type, { fieldName: 'type', required: true, maxLength: 10}),
-            validatePositiveInteger(userId, { fieldName: 'userId', required: true})
+            validateString(type, { fieldName: 'type', required: true, maxLength: 10})
         ].filter(Boolean);
 
         if(errors.length) return res.status(400).json({ errors });
@@ -36,6 +36,8 @@ router.post('/', async (req, res) => {
 // Edit category
 router.patch('/:id', async (req, res) => {
     try{
+        const userId = req.user.id;
+
         const id = parseId(req.params.id)
         if (id == null) return res.status(400).json({ error: "Id must be a positive integer" });
 
@@ -46,9 +48,12 @@ router.patch('/:id', async (req, res) => {
         if (errors.length) return res.status(400).json({ errors });
 
         const category = await prisma.category.update({
-            where: {id: id},
+            where: {id, userId},
             data: {name: name}
         });
+
+        if(category == null) return res.status(404).json({ error: "Category does not exist." });
+        
         res.json(category)
     } catch (error){
         console.log(error);
@@ -60,7 +65,9 @@ router.patch('/:id', async (req, res) => {
 // Get all categories
 router.get('/', async (req, res) => {
     try{
-        const categories = await prisma.category.findMany();
+        const userId = req.user.id;
+
+        const categories = await prisma.category.findMany({ where: { userId }});
         res.json(categories);
     } catch (error){
         console.log(error);
@@ -73,11 +80,13 @@ router.get('/', async (req, res) => {
 // Get by id
 router.get('/:id', async (req, res) => {
     try{
+        const userId = req.user.id;
+
         const id = parseId(req.params.id)
         if (id == null) return res.status(400).json({ error: "Id must be a positive integer" });
 
-        const category = await prisma.category.findUnique({
-            where: { id: id },
+        const category = await prisma.category.findFirst({
+            where: { id, userId },
         }) 
         if(!category){
             return res.status(404).json({ error: "Category does not exist." });

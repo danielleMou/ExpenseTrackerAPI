@@ -3,6 +3,14 @@ import { Decimal } from '@prisma/client/runtime/library';
 
 async function createMaterial(name, unit, pricePerUnit, quantity, categoryId, createExpense, userId){
     const create = await prisma.$transaction(async (tx) => {
+        // check the user owns the category
+        const catOwner = await tx.category.findFirst({ where: { id: categoryId, userId }});
+        if(catOwner == null){
+            const err = new Error(`Category with id ${categoryId} does not exist.`);
+            err.code = 'CAT_NONEXISTENT';
+            throw err;
+        }
+
         // create the new material
         const createNewMaterial = await tx.material.create({
             data: {
@@ -44,11 +52,22 @@ async function createMaterial(name, unit, pricePerUnit, quantity, categoryId, cr
 async function updateMaterial(id, name, unit, pricePerUnit, categoryId, userId){
     
     const updatedMaterial = await prisma.$transaction( async (tx) =>{
-        // check the material id exists
-        const fetchedMaterial = await tx.material.findUnique( { where: { id: id }} );
-        if(fetchedMaterial == null) {
+
+        // check the material belongs to the user
+        const materialOwnership = await prisma.material.findFirst({
+            where: { id, userId },
+        });
+        if(materialOwnership == null){
             const err = new Error(`Material with id ${id} does not exist.`);
             err.code = 'MATERIAL_NONEXISTENT';
+            throw err;
+        }
+
+        // check the category belongs to the user
+        const catOwner = await tx.category.findFirst({ where: { id: categoryId, userId }});
+        if(catOwner == null){
+            const err = new Error(`Category with id ${categoryId} does not exist.`);
+            err.code = 'CAT_NONEXISTENT';
             throw err;
         }
 
@@ -85,8 +104,9 @@ async function restockMaterial(materialId, noUnits, pricePerUnit, isUpdated, use
     }
 
     const restock = await prisma.$transaction(async (tx) => {
-        // check the material exists
-        const fetchedMaterial = await tx.material.findUnique( { where: { id: materialId }} );
+
+        // check the material exists and belongs to user
+        const fetchedMaterial = await tx.material.findFirst( { where: { id: materialId, userId }} );
         if(fetchedMaterial == null) {
             const err = new Error(`Material with id ${materialId} does not exist.`);
             err.code = 'MATERIAL_NONEXISTENT';
