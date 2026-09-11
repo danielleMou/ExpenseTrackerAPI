@@ -3,6 +3,7 @@
 This is an API for a small handmade business that tracks materials and expenses. I have designed this for my own specific use case of making and selling handmade bags. Each product is treated as a unique item made of materials that are recorded and tracked in the system, giving each product a production cost traceable to each constituent part of the product. Overall, the system tracks materials, stock levels, finished objects, the materials that went into each finished object, money in and out, as well logging an audit trail for every change.
 
 
+**Example 1**: processing a finished object after its been sold.
 POST /finishedObjects/1/process
 ```json
 {
@@ -31,6 +32,7 @@ Records the revenue, creates each selling fee as an expense, marks the object pr
 and writes the relavent logs, all in one transaction.
 
 
+**Example 2**: Creating a finished object, with the materials used to create it.
 POST /finishedObjects
 ```json
 {   
