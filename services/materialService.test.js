@@ -183,8 +183,6 @@ describe('Create material', () => {
             data: { name: "Fabric", type: "material", userId: user.id }
         });
 
-        // should have no 
-
         const result = await createMaterial("linen", "m", 3.33, 2.5, category.id, false, user.id);
 
         const materials = await prisma.material.findMany();

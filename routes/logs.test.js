@@ -280,7 +280,6 @@ describe('GET /logs/financial', () => {
     expect(res.body[0].type).toBe('money in');
   });
 
-  // the point of the snapshot: the log survives the deleted record
   test('retains logs after the expense is deleted', async () => {
     const { token } = await makeAuthedUser('user 1');
 

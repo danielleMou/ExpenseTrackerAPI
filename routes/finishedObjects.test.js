@@ -188,7 +188,6 @@ describe('GET /finishedObjects/:id', () => {
     expect(res.body).toHaveProperty('error');
   });
 
-  // OPEN QUESTION: should a deleted FO be retrievable directly?
   test('returns a deleted finished object by id', async () => {
     const { user, token } = await makeAuthedUser('user 1');
     const cat = await makeCategory(user.id);
