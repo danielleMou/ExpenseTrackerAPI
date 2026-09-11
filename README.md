@@ -1,8 +1,10 @@
+## Expense and Inventory Tracker API
+
 This is an API for a small handmade business that tracks materials and expenses. I have designed this for my own specific use case of making and selling handmade bags. Each product is treated as a unique item made of materials that are recorded and tracked in the system, giving each product a production cost traceable to each constituent part of the product. Overall, the system tracks materials, stock levels, finished objects, the materials that went into each finished object, money in and out, as well logging an audit trail for every change.
 
 
 POST /finishedObjects/1/process
-
+```json
 {
   "salePrice": "20.00",
   "expenses": [
@@ -10,7 +12,11 @@ POST /finishedObjects/1/process
     { "name": "Etsy fee", "cost": "1.95", "description": "Platform cut" }
   ]
 }
+```
+
+
 Response:
+```json
 {
     "id": 1,
     "name": "Quilted Pouch",
@@ -19,12 +25,14 @@ Response:
     "isProcessed": true,
     ...
 }
+```
 
 Records the revenue, creates each selling fee as an expense, marks the object processed,
 and writes the relavent logs, all in one transaction.
 
-POST /finishedObjects
 
+POST /finishedObjects
+```json
 {   
     "name": "Quilted Pouch",
     "description": "Grey and white quilted star pouch with copper zipper.",
@@ -35,8 +43,10 @@ POST /finishedObjects
     { "materialId": 2, "quantityUsed": "0.5" }
     ]
 }
+```
 
 response:
+```json
 {
     "id": 1,
     "name": "Quilted Pouch",
@@ -47,6 +57,7 @@ response:
     "isProcessed": false,
     ...
 }
+```
 
 Creates a finished obejct, links the materials and deducts the stock, calculates the production cost 
 and creates the relavent logs, all in one transaction.
@@ -55,9 +66,9 @@ and creates the relavent logs, all in one transaction.
 This is the backend completed. The front-end is currently in progress.
 
 **Tech Stack**
-Node.js + Express
-PostgreSQL
-Prisma 
-Vitest + Supertest
-Bcrypt + JWT
+- Node.js + Express
+- PostgreSQL
+- Prisma 
+- Vitest + Supertest
+- Bcrypt + JWT
 
